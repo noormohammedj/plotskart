@@ -1,0 +1,853 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plotskart</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: left rail (desktop) / bottom tab bar (phone) + work area; each project's plot map is the hero */
+:root{
+  --bg:#EDF1EF; --surface:#FFFFFF; --sunk:#E2E8E5; --ink:#14212A; --muted:#566870; --line:#D2DBD7;
+  --accent:#24477F; --accent-ink:#FFFFFF; --accent-soft:#DDE6F5;
+  --sold:#3FAE63; --booked:#F1C33F; --avail:#E2574C; --plot-ink:#0D1A13;
+  --good:#2F8F52; --warn:#B7791F; --bad:#C2413A;
+  --land:#E3EBDC; --road:#A7B0B3; --road-ink:#FFFFFF; --park:#BCD8AF;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1416; --surface:#162024; --sunk:#1C282C; --ink:#E3EBE9; --muted:#97A7AA; --line:#2A383C;
+  --accent:#93B1EC; --accent-ink:#0E1416; --accent-soft:#22314C;
+  --good:#5CC284; --warn:#E0A84A; --bad:#EE7A70;
+  --land:#18241E; --road:#3A474B; --road-ink:#C9D3D5; --park:#22402B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1416; --surface:#162024; --sunk:#1C282C; --ink:#E3EBE9; --muted:#97A7AA; --line:#2A383C;
+  --accent:#93B1EC; --accent-ink:#0E1416; --accent-soft:#22314C;
+  --good:#5CC284; --warn:#E0A84A; --bad:#EE7A70;
+  --land:#18241E; --road:#3A474B; --road-ink:#C9D3D5; --park:#22402B; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-body);font-size:14px;line-height:1.5;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:1.75rem;line-height:1.15}
+h2{font-size:1.15rem}
+h3{font-size:1rem}
+p{margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.lbl{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+
+.shell{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;max-width:1360px;margin:0 auto}
+.rail{position:sticky;top:env(safe-area-inset-top,0px);height:100vh;padding-block:20px;display:flex;flex-direction:column;gap:22px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand b{font-family:var(--f-display);font-size:1.25rem;letter-spacing:-.02em}
+.brand small{display:block;color:var(--muted);font-size:.72rem}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--muted);font-weight:500}
+.nav button:hover{background:var(--sunk);color:var(--ink)}
+.nav button.on{background:var(--accent-soft);color:var(--ink)}
+.nav button:focus-visible{outline:2px solid var(--accent)}
+.nav svg,.tabbar svg{width:18px;height:18px;flex:none}
+.rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px;font-size:.8rem;color:var(--muted)}
+.linkbtn{all:unset;cursor:pointer;color:var(--accent);font-weight:500}
+.linkbtn:focus-visible{outline:2px solid var(--accent)}
+
+.main{min-width:0;padding-bottom:40px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;gap:12px;padding-block:14px;border-bottom:1px solid var(--line);margin-bottom:22px}
+.top .ttl{flex:1;min-width:0}
+.top .ttl h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.role{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 12px}
+.role select{border:0;background:transparent;font-weight:600;padding:4px 2px;max-width:150px}
+.bell{position:relative;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center}
+.bell svg{width:18px;height:18px}
+.bell .dot{position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;border-radius:9px;background:var(--avail);color:#fff;font-size:.68rem;font-weight:600;display:grid;place-items:center;padding:0 4px}
+.mbrand{display:none}
+
+.tabbar{display:none}
+@media (max-width:860px){
+  .shell{grid-template-columns:minmax(0,1fr);gap:0}
+  .rail{display:none}
+  .mbrand{display:block}
+  .main{padding-bottom:96px}
+  .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+  .tabbar button{all:unset;cursor:pointer;flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.68rem;padding:6px 0;color:var(--muted);border-radius:8px}
+  .tabbar button.on{color:var(--accent);font-weight:600}
+  .tabbar button:focus-visible{outline:2px solid var(--accent)}
+  h1{font-size:1.4rem}
+  .role{padding-left:8px}
+  .role .lbl{display:none}
+  .top .ttl h2{font-size:1rem}
+}
+
+.stack-v{display:flex;flex-direction:column;gap:22px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;min-width:0}
+.card-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+@media (max-width:420px){.grid2{grid-template-columns:minmax(0,1fr)}}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.kpi{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.kpi b{font-family:var(--f-display);font-size:1.7rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi small{color:var(--muted);font-size:.78rem}
+.kpi .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:1px}
+@media (max-width:600px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.sw.s-sold,.bar .s-sold{background:var(--sold)} .sw.s-booked,.bar .s-booked{background:var(--booked)} .sw.s-available,.bar .s-available{background:var(--avail)}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--sunk)}
+.bar i{display:block;height:100%}
+
+.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+@media (max-width:420px){.plist{grid-template-columns:minmax(0,1fr)}}
+.pcard{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.pcard:hover{border-color:var(--accent)}
+.pcard:focus-visible{outline:2px solid var(--accent)}
+.pcard .loc{color:var(--muted);font-size:.82rem}
+.cnts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cnts div{display:flex;flex-direction:column}
+.cnts b{font-family:var(--f-mono);font-size:1.15rem;font-weight:500}
+.cnts span{font-size:.74rem;color:var(--muted)}
+.money{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+.money b{font-family:var(--f-mono);font-weight:500;font-size:.92rem}
+.money span{font-size:.72rem;color:var(--muted);display:block}
+
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.74rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;color:var(--plot-ink)}
+.pill.st-sold{background:var(--sold)} .pill.st-booked{background:var(--booked)} .pill.st-available{background:var(--avail)}
+.tag{display:inline-block;font-size:.72rem;font-weight:500;padding:1px 8px;border-radius:6px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.tag.urgent{background:var(--avail);color:var(--plot-ink)}
+.tag.soon{background:var(--booked);color:var(--plot-ink)}
+.tag.ok{background:var(--accent-soft);color:var(--ink)}
+
+.seg{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:10px;width:max-content;max-width:100%;overflow-x:auto}
+.seg button{all:unset;cursor:pointer;padding:7px 12px;border-radius:7px;font-weight:500;color:var(--muted);white-space:nowrap}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg button:focus-visible{outline:2px solid var(--accent)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600;text-decoration:none;color:var(--ink);white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:5px 10px;font-size:.82rem}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+
+.phead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.phead p{color:var(--muted);margin-top:4px}
+.back{all:unset;cursor:pointer;color:var(--accent);font-weight:500;font-size:.85rem;margin-bottom:6px;display:inline-block}
+
+.maptools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-weight:500;font-size:.85rem}
+.chip.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.chip .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.chip .n{font-family:var(--f-mono);color:var(--muted)}
+.tools-r{display:flex;gap:6px;align-items:center}
+.tools-r input{width:120px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 10px}
+.zoom{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.zoom button{all:unset;cursor:pointer;width:34px;height:32px;display:grid;place-items:center;font-weight:600}
+.zoom button+button{border-left:1px solid var(--line)}
+.zoom button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.mapwrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--land);max-height:72vh;-webkit-overflow-scrolling:touch}
+svg.map{display:block;min-width:100%;height:auto}
+.m-land{fill:var(--land)}
+.m-road{fill:var(--road)}
+.m-roadl{stroke:var(--road);fill:none}
+.m-park{fill:var(--park);stroke:var(--surface);stroke-width:2}
+.m-park-t{fill:var(--ink);font-family:var(--f-mono);font-size:10px;text-anchor:middle;opacity:.75}
+.m-dp{fill:var(--ink)} .m-dp-t{fill:var(--bg);font-family:var(--f-mono);font-size:10px;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.m-lbl{fill:var(--road-ink);font-family:var(--f-mono);font-size:12px;letter-spacing:.1em;text-anchor:middle;dominant-baseline:central}
+.m-plot{cursor:pointer}
+.m-plot .sh{stroke:var(--surface);stroke-width:2.5;transition:opacity .15s}
+.m-plot.st-sold .sh{fill:var(--sold)} .m-plot.st-booked .sh{fill:var(--booked)} .m-plot.st-available .sh{fill:var(--avail)}
+.m-plot text{fill:var(--plot-ink);font-family:var(--f-mono);font-weight:500;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.m-plot:hover .sh{stroke:var(--ink);stroke-width:3}
+.m-plot.dim{opacity:.16}
+.m-plot.sel .sh,.m-plot.hit .sh{stroke:var(--ink);stroke-width:5}
+.m-plot:focus{outline:none}
+.m-plot:focus-visible .sh{stroke:var(--accent);stroke-width:5}
+.m-comp circle{fill:var(--surface);stroke:var(--line)} .m-comp path{fill:var(--avail)} .m-comp text{fill:var(--ink);font-family:var(--f-mono);font-size:11px;font-weight:600;text-anchor:middle}
+.hint{font-size:.8rem;color:var(--muted);margin-top:8px}
+
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th{text-align:left;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--sunk)}
+tfoot td{font-weight:600;border-top:1px solid var(--line)}
+.minibar{width:90px;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden;display:inline-block;vertical-align:middle}
+.minibar i{display:block;height:100%;background:var(--accent)}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tile b{font-family:var(--f-display);font-size:1.45rem;font-variant-numeric:tabular-nums;line-height:1.15}
+.tile small{color:var(--muted);font-size:.78rem}
+.tile.hero{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tile.hero .lbl,.tile.hero small{color:inherit;opacity:.8}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+
+.dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.dl div{background:var(--surface);padding:9px 12px;display:flex;flex-direction:column;min-width:0}
+.dl b{font-family:var(--f-mono);font-weight:500;font-size:.92rem;overflow-wrap:anywhere}
+.dl .wide{grid-column:1/-1}
+
+.vastu{display:flex;flex-direction:column;gap:8px}
+.vrow{display:grid;grid-template-columns:14px minmax(0,1fr);gap:10px;align-items:start}
+.vrow i{width:10px;height:10px;border-radius:50%;margin-top:5px}
+.vrow i.good{background:var(--good)} .vrow i.ok{background:var(--warn)} .vrow i.warn{background:var(--bad)}
+.vrow small{display:block;color:var(--muted)}
+.stars{font-family:var(--f-mono);color:var(--warn);letter-spacing:2px}
+
+.list{display:flex;flex-direction:column}
+.li{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);min-width:0}
+.li:last-child{border-bottom:0}
+.li .body{flex:1;min-width:0}
+.li .body p{overflow-wrap:anywhere}
+.li .meta{font-size:.76rem;color:var(--muted)}
+.li .ic{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;font-family:var(--f-mono);font-size:.7rem;font-weight:600;color:var(--plot-ink)}
+.ic.k-sold{background:var(--sold)} .ic.k-booked{background:var(--booked)} .ic.k-available{background:var(--avail)} .ic.k-reg{background:var(--accent);color:var(--accent-ink)} .ic.k-pay{background:var(--booked)} .ic.k-money{background:var(--sunk);color:var(--ink)} .ic.k-rate{background:var(--accent-soft);color:var(--ink)}
+.li.unread .body p{font-weight:600}
+.udot{width:8px;height:8px;border-radius:50%;background:var(--avail);flex:none;margin-top:8px}
+
+.rem{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.rem .when{align-self:start;width:58px;text-align:center;border-radius:10px;padding:8px 0;background:var(--sunk)}
+.rem .when b{display:block;font-family:var(--f-display);font-size:1.5rem;line-height:1}
+.rem .when small{font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.rem .when.urgent{background:var(--avail);color:var(--plot-ink)} .rem .when.urgent small{color:inherit}
+.rem .when.soon{background:var(--booked);color:var(--plot-ink)} .rem .when.soon small{color:inherit}
+.rem .msg{font-size:.82rem;background:var(--sunk);border-radius:8px;padding:8px 10px;margin-top:8px;overflow-wrap:anywhere}
+.rem-list{display:flex;flex-direction:column;gap:12px}
+.setrow{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.setrow label{display:flex;align-items:center;gap:8px}
+.setrow select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 8px}
+
+form.f{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:var(--sunk);border-radius:10px;padding:14px}
+form.f .wide{grid-column:1/-1}
+form.f label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--muted);font-weight:500;min-width:0}
+form.f input,form.f select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;font-size:.92rem;color:var(--ink);min-width:0;width:100%}
+form.f h3{grid-column:1/-1}
+@media (max-width:420px){form.f{grid-template-columns:minmax(0,1fr)}}
+
+.scrim{position:fixed;inset:0;background:rgba(8,14,16,.45);z-index:20}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);z-index:21;background:var(--bg);border-left:1px solid var(--line);overflow-y:auto;padding:calc(18px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) 20px;display:flex;flex-direction:column;gap:18px}
+@media (max-width:860px){.sheet{top:auto;left:0;width:100%;max-height:88%;border-left:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}}
+.sheet>*{flex-shrink:0}
+.sh-h{display:flex;align-items:flex-start;gap:12px}
+.sh-h .t{flex:1;min-width:0}
+.sh-h h2{font-size:1.6rem}
+.x{all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);font-size:1.1rem}
+.x:focus-visible{outline:2px solid var(--accent)}
+.sec{display:flex;flex-direction:column;gap:10px}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:500;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.2)}
+@media (max-width:860px){.toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
+.demo{font-size:.78rem;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:8px 12px}
+.empty{color:var(--muted);padding:12px 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div id="app"></div>
+<div class="scrim" id="scrim" data-act="close" hidden></div>
+<section class="sheet" id="sheet" hidden aria-modal="true" role="dialog"></section>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ---------- helpers ---------- */
+const NOW=new Date();NOW.setHours(0,0,0,0);
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const TODAY=ymd(NOW);
+const dayOff=n=>{const d=new Date(NOW);d.setDate(d.getDate()+n);return ymd(d)};
+const daysTo=s=>Math.round((new Date(s+'T00:00:00')-NOW)/864e5);
+const fmtD=s=>s?new Date(s+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'—';
+const fmtT=ts=>{const m=Math.round((Date.now()-ts)/6e4);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' d ago'};
+const inr=n=>'₹'+Math.round(n||0).toLocaleString('en-IN');
+const short=n=>{n=n||0;const a=Math.abs(n);return(n<0?'−':'')+'₹'+(a>=1e7?(a/1e7).toFixed(2)+' Cr':a>=1e5?(a/1e5).toFixed(1)+' L':Math.round(a).toLocaleString('en-IN'))};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r10k=n=>Math.round(n/1e4)*1e4;
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const whenTxt=d=>d<0?`${-d} day${d===-1?'':'s'} ago`:d===0?'today':d===1?'tomorrow':`in ${d} days`;
+const LBL={sold:'Sold',booked:'Booked',available:'Available'};
+const DIR={N:'North',E:'East',S:'South',W:'West'};
+const CATS=['Land purchase','Registration','Layout design','Electricity','Water connection','Road','Marketing','Sales','Legal','Other'];
+const ICON={
+  home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  projects:'<rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/>',
+  reminders:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M5 3L2 6M19 3l3 3"/>',
+  finance:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  team:'<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5.5-4.5-6.5"/>',
+  activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  bell:'<path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4zM10 21h4"/>'};
+const ico=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
+
+/* ---------- layout geometry ---------- */
+function col(x,w,facing,items){return items.map(([label,y1,y2])=>({label,x,y:y1,w,h:y2-y1,facing}))}
+function layoutJatwada(){
+  const plots=[
+    ...col(10,62,'W',[['A1',30,115],['A2',115,198],['A3',198,282],['A4',282,405]]),
+    ...col(72,63,'E',[['A11',30,115],['A10',115,155],['A9',155,198],['A8',198,240],['A7',240,282],['A6',282,322],['A5',322,405]]),
+    ...col(178,70,'W',[['A13',122,168],['A14',168,212],['A15',212,255],['A16',255,297],['A17',297,340],['A18',340,405]]),
+    ...col(248,65,'E',[['A24',122,168],['A23',168,212],['A22',212,255],['A21',255,297],['A20',297,340],['A19',340,405]]),
+    ...col(358,102,'W',[['B4',215,258],['B3',258,300],['B2',300,342],['B1',342,405]]),
+    ...col(460,105,'E',[['B5',30,97],['B6',97,160],['B7',160,222],['B8',222,285],['B9',285,345],['B10',345,405]]),
+    ...col(648,67,'W',[['B18',30,75],['B17',75,118],['B16',118,160],['B15',160,202],['B14',202,243],['B13',243,285],['B12',285,325],['B11',325,405]]),
+    ...col(715,60,'E',[['C9',30,75],['C8',75,118],['C7',118,160],['C6',160,202],['C5',202,243],['C4',243,285],['C3',285,325],['C2',325,365],['C1',365,405]]),
+    ...col(818,60,'W',[['C10',105,160],['C11',160,210],['C12',210,252],['C13',252,295],['C14',295,345],['C15',345,405]]),
+    ...col(878,60,'E',[['C21',105,160],['C20',160,210],['C19',210,252],['C18',252,295],['C17',295,345],['C16',345,405]]),
+    {label:'C23',x:980,y:105,w:160,h:190,facing:'W',pts:'980,105 1040,105 1140,295 980,295'},
+    {label:'C22',x:980,y:295,w:160,h:110,facing:'W'},
+    ...col(10,65,'W',[['D1',470,548],['D2',548,630],['D3',630,712]]),
+    ...col(75,63,'E',[['D8',470,548],['D7',548,590],['D6',590,630],['D5',630,672],['D4',672,712]]),
+    ...col(183,72,'W',[['D9',470,512],['D10',512,555],['D11',555,597],['D12',597,650]]),
+    ...col(255,60,'E',[['D17',470,512],['D16',512,555],['D15',555,597],['D14',597,650]]),
+    ...col(200,115,'S',[['D13',650,712]]),
+    ...col(360,102,'W',[['D18',470,542],['D19',542,585],['D20',585,628]]),
+    ...col(462,103,'E',[['D22',470,542],['D21',542,628]]),
+    ...col(648,69,'W',[['E1',470,540],['E2',540,620],['E3',620,712]]),
+    ...col(717,58,'E',[['E9',470,497],['E8',497,540],['E7',540,580],['E6',580,625],['E5',625,668],['E4',668,712]]),
+    ...col(818,60,'W',[['E10',465,505],['E11',505,545],['E12',545,585],['E13',585,628]]),
+    ...col(878,60,'E',[['E18',465,505],['E17',505,545],['E16',545,585],['E15',585,628]]),
+    ...col(838,100,'S',[['E14',628,690]]),
+    ...col(985,77,'N',[['E19',465,595]]),
+    ...col(1062,108,'N',[['E20',465,595]]),
+    ...col(1170,100,'E',[['E21',545,660]])];
+  const corner={A4:'S',A5:'S',A18:'S',A19:'S',B1:'S',B10:'S',B11:'S',C1:'S',C15:'S',C16:'S',C22:'S',D1:'N',D8:'N',D9:'N',D17:'N',D18:'N',D22:'N',E1:'N',E9:'N',E10:'N',E18:'N',E19:'W',E21:'N'};
+  plots.forEach(p=>{if(corner[p.label])p.corner=corner[p.label]});
+  const V=(x,a,b)=>({x,y:a,w:0,h:b-a});
+  const roads=[{x:0,y:405,w:1280,h:60}];
+  [[135,178],[313,358],[565,648],[775,818],[938,980]].forEach(([a,b])=>roads.push({x:a,y:20,w:b-a,h:385}));
+  [[138,183],[315,360],[565,648],[775,818],[938,985]].forEach(([a,b])=>roads.push({x:a,y:465,w:b-a,h:250}));
+  return {w:1280,h:720,scale:[.6,.6],plots,roads,
+    diag:[[1022,20,1312,570,42]],
+    parks:[
+      {pts:'178,30 313,30 313,122 178,122',t:['Open space +','Electric DP','296.5 m²'],cx:245,cy:66,dp:[190,108]},
+      {pts:'358,30 460,30 460,215 358,215',t:['Open space +','Electric DP','338.51 m²'],cx:409,cy:120,dp:[392,44]},
+      {pts:'818,30 1000,30 1040,105 818,105',t:['Open space + Electric DP','316.57 m²'],cx:925,cy:62,dp:[840,92]},
+      {pts:'985,595 1170,595 1170,660 985,660',t:['Open space + Electric DP','355.6 m²'],cx:1060,cy:622,dp:[1150,614]},
+      {pts:'375,628 565,628 565,712 375,712',t:['Amenity area'],cx:470,cy:670}],
+    labels:[
+      {t:'9.00 M WIDE ROAD',x:300,y:435},{t:'9.00 M WIDE ROAD',x:860,y:435},
+      {t:'6 M ROAD',x:156,y:240,r:-90},{t:'6 M ROAD',x:160,y:590,r:-90},{t:'6 M ROAD',x:335,y:240,r:-90},{t:'6 M ROAD',x:337,y:590,r:-90},
+      {t:'12 M WIDE ROAD',x:606,y:240,r:-90},{t:'12 M WIDE ROAD',x:606,y:590,r:-90},
+      {t:'6 M ROAD',x:796,y:240,r:-90},{t:'6 M ROAD',x:796,y:590,r:-90},{t:'6 M ROAD',x:959,y:240,r:-90},{t:'6 M ROAD',x:961,y:590,r:-90},
+      {t:'9.00 M WIDE DP ROAD',x:1150,y:250,r:62}],
+    compass:[1240,140]};
+}
+function layoutGrid(cfg){
+  const plots=[];
+  cfg.blocks.forEach(b=>{let n=1;for(let c=0;c<2;c++)for(let r=0;r<b.rows;r++){
+    const p={label:b.p+(n++),x:b.x+c*cfg.pw,y:b.y+r*cfg.ph,w:cfg.pw,h:cfg.ph,facing:c?'E':'W'};
+    if(b.top&&r===b.rows-1&&b.rows===cfg.rows)p.corner='S';
+    if(!b.top&&r===0)p.corner='N';
+    plots.push(p)}});
+  return {w:cfg.w,h:cfg.h,scale:cfg.scale,plots,roads:cfg.roads,diag:[],parks:cfg.parks,labels:cfg.labels,compass:cfg.compass};
+}
+function layoutHarsul(){
+  const blocks=[];['A','B','C','D'].forEach((p,i)=>blocks.push({p,x:40+i*250,y:30,rows:5,top:true}));
+  ['E','F','G','H'].forEach((p,i)=>blocks.push({p,x:40+i*250,y:330,rows:i===3?3:5}));
+  return layoutGrid({w:1000,h:600,pw:85,ph:50,rows:5,scale:[.353,.9],blocks,
+    roads:[{x:0,y:280,w:1000,h:50},...[210,460,710].map(x=>({x,y:0,w:80,h:600}))],
+    parks:[{pts:'790,480 960,480 960,580 790,580',t:['Park + children\'s play area','410 m²'],cx:875,cy:524}],
+    labels:[{t:'9 M ROAD',x:500,y:305},{t:'7.2 M ROAD',x:250,y:150,r:-90},{t:'7.2 M ROAD',x:500,y:150,r:-90},{t:'7.2 M ROAD',x:750,y:150,r:-90}],
+    compass:[975,30]});
+}
+function layoutMitmita(){
+  const blocks=[];['A','B','C'].forEach((p,i)=>blocks.push({p,x:40+i*260,y:30,rows:4,top:true}));
+  ['D','E','F'].forEach((p,i)=>blocks.push({p,x:40+i*260,y:300,rows:i===2?2:4}));
+  return layoutGrid({w:800,h:540,pw:100,ph:55,rows:4,scale:[.4,1.09],blocks,
+    roads:[{x:0,y:250,w:800,h:50},...[240,500].map(x=>({x,y:0,w:60,h:540}))],
+    parks:[{pts:'560,410 760,410 760,520 560,520',t:['Open space + Electric DP','520 m²'],cx:660,cy:458,dp:[740,500]}],
+    labels:[{t:'9 M ROAD',x:400,y:275},{t:'6 M ROAD',x:270,y:140,r:-90},{t:'6 M ROAD',x:530,y:140,r:-90}],
+    compass:[780,30]});
+}
+function polyArea(pts){const a=pts.split(' ').map(s=>s.split(',').map(Number));let s=0;for(let i=0;i<a.length;i++){const[x1,y1]=a[i],[x2,y2]=a[(i+1)%a.length];s+=x1*y2-x2*y1}return Math.abs(s)/2}
+
+/* ---------- vastu ---------- */
+function vastu(p){
+  const f=p.facing,main=f[0];let score={E:5,N:5,W:3.5,S:2.5}[main];const notes=[];
+  notes.push([`${DIR[main]}-facing entrance`,{E:'Most preferred. Morning sun reaches the entrance.',N:'Highly preferred. Associated with prosperity.',W:'Acceptable. Keep the gate in the north-west half of the frontage.',S:'Needs care. Keep the gate in the south-east half of the frontage.'}[main],{E:'good',N:'good',W:'ok',S:'warn'}[main]]);
+  if(f.length>1){const s=new Set(f);let c;
+    if(s.has('N')&&s.has('E')){c=['North-east corner plot','Ishanya corner, considered the most auspicious.','good'];score+=.5}
+    else if(s.has('S')&&s.has('W'))c=['South-west corner plot','Nairutya corner. Suits the master bedroom; keep this corner built-up.','ok'];
+    else if(s.has('S')&&s.has('E')){c=['South-east corner plot','Agneya corner. Good position for the kitchen.','ok'];score-=.3}
+    else c=['North-west corner plot','Vayavya corner. Average; suits guest rooms and storage.','ok'];
+    notes.push(c)}
+  else notes.push(['Road on one side','Single frontage, no corner influence.','ok']);
+  const r=Math.max(p.front,p.depth)/Math.min(p.front,p.depth);
+  if(p.pts){notes.push(['Irregular shape','One side runs along the diagonal DP road. Rated lower in vastu.','warn']);score-=.8}
+  else notes.push([r<=1.1?'Square plot':r<=1.8?'Rectangular plot':'Elongated plot',`Side ratio 1 : ${r.toFixed(2)}${r<=1.8?', within the preferred range.':'. Long, narrow plots are rated lower.'}`,r<=1.8?'good':'warn']);
+  if(r>1.8)score-=.7;
+  score=Math.max(1,Math.min(5,Math.round(score*2)/2));
+  return {score,notes};
+}
+const stars=s=>'★'.repeat(Math.floor(s))+(s%1?'½':'')+'☆'.repeat(5-Math.ceil(s));
+
+/* ---------- seed data (sample) ---------- */
+const BUYERS=['Arjun Deshmukh','Sneha Kulkarni','Imran Shaikh','Pooja Jadhav','Rahul Pawar','Kavita More','Vikram Patil','Ayesha Khan','Nitin Gaikwad','Meera Joshi','Sachin Bhosale','Farhan Siddiqui','Anjali Shinde','Prakash Wagh','Rekha Chavan','Deepak Kale','Sunita Thorat','Rohit Salunkhe','Zoya Pathan','Ganesh Mane','Swati Deshpande','Amol Kadam'];
+const COSTS=[['Land purchase','Landowners (sale deed)',.36],['Registration','Sub-Registrar office (stamp duty)',.022],['Layout design','Desai Architects & Planners',.006],['Electricity','Shree Electricals / MSEDCL',.028],['Water connection','Gram Panchayat + borewell',.012],['Road','Sri Balaji Road Contractors',.055],['Marketing','PixelReach Media',.014],['Sales','Site office & staff',.008],['Legal','Adv. Kulkarni & Associates',.004]];
+function seed(){
+  const users=[
+    {id:'own',name:'You',role:'owner',rate:0},
+    {id:'ravi',name:'Ravi Kumar',role:'sales',rate:1.5,phone:'+91 90000 00101'},
+    {id:'priya',name:'Priya Shankar',role:'sales',rate:1.5,phone:'+91 90000 00102'},
+    {id:'suresh',name:'Suresh Babu',role:'broker',rate:2,phone:'+91 90000 00103'},
+    {id:'anand',name:'Anand Raj',role:'broker',rate:2,phone:'+91 90000 00104'}];
+  const defs=[
+    {id:'jat',name:'Jatwada Greens',loc:'Mauje Jatwada, Chh. Sambhajinagar, Maharashtra',lat:19.953,lng:75.287,approval:'NA order + Gram Panchayat layout approval',launched:'Jan 2025',guideline:1150,rate:1850,L:layoutJatwada(),sold:.46,booked:.16,paidF:[1,1,.8,.6,1,.62,.75,.7,1],fund:[.3,.06,.2],commF:.7},
+    {id:'har',name:'Harsul Heights',loc:'Harsul–Sawangi Road, Chh. Sambhajinagar, Maharashtra',lat:19.938,lng:75.353,approval:'Town planning sanction (TP/2025/118)',launched:'Jun 2025',guideline:900,rate:1450,L:layoutHarsul(),sold:.26,booked:.15,paidF:[1,.7,1,.3,.5,.25,.5,.4,.8],fund:[.28,.08,.12],commF:.4},
+    {id:'mit',name:'Mitmita Enclave',loc:'Mitmita, Padegaon Road, Chh. Sambhajinagar, Maharashtra',lat:19.899,lng:75.258,approval:'NA conversion approved, layout sanction pending',launched:'Sep 2026',guideline:750,rate:1200,L:layoutMitmita(),sold:.08,booked:.12,paidF:[.6,.3,.8,0,.2,0,.3,.2,.5],fund:[.2,.1,.15],commF:0}];
+  let pn=100;const phone=()=>'+91 90000 0'+String(++pn).padStart(4,'0');
+  const projects=defs.map((d,pi)=>{
+    const rnd=rng(17+pi*31),L=d.L;
+    const plots=L.plots.map(o=>{
+      const [sx,sy]=L.scale,fx=Math.round(o.w*sx),fy=Math.round(o.h*sy);
+      const sqft=o.pts?Math.round(polyArea(o.pts)*sx*sy):fx*fy;
+      const ew=o.facing==='E'||o.facing==='W';
+      return {id:d.id+':'+o.label,label:o.label,x:o.x,y:o.y,w:o.w,h:o.h,pts:o.pts||null,front:ew?fy:fx,depth:ew?fx:fy,sqft,
+        facing:o.corner?[o.facing,o.corner]:[o.facing],status:'available',rate:null,buyer:null,phone:null,paid:0,dueDate:null,regDate:null,registered:false,soldBy:null,history:[]}});
+    const pr={id:d.id,name:d.name,loc:d.loc,lat:d.lat,lng:d.lng,approval:d.approval,launched:d.launched,guideline:d.guideline,rate:d.rate,rateBy:'own',rateOn:dayOff(-12),layout:{...L,plots:undefined},plots,costs:[],funding:{}};
+    const by=['ravi','ravi','priya','priya','suresh','anand','own'];
+    plots.forEach(p=>{
+      const r=rnd(),v=p.sqft*pr.rate;
+      if(r<d.sold+d.booked){p.buyer=BUYERS[Math.floor(rnd()*BUYERS.length)];p.phone=phone();p.soldBy=by[Math.floor(rnd()*by.length)]}
+      if(r<d.sold){p.status='sold';
+        if(rnd()<.15){p.paid=r10k(v*.85);p.regDate=dayOff(4+Math.floor(rnd()*18))}
+        else{p.paid=v;p.regDate=dayOff(-(8+Math.floor(rnd()*220)));p.registered=true}
+        p.history.push([p.registered?p.regDate:dayOff(-6),'Marked sold',p.soldBy])}
+      else if(r<d.sold+d.booked){p.status='booked';p.paid=r10k(v*(.1+rnd()*.2));p.dueDate=dayOff(5+Math.floor(rnd()*30));
+        if(rnd()<.3)p.regDate=dayOff(12+Math.floor(rnd()*30));
+        p.history.push([dayOff(-(3+Math.floor(rnd()*40))),`Booked, advance ${inr(p.paid)}`,p.soldBy])}
+    });
+    const R=plots.reduce((a,p)=>a+p.sqft*pr.rate,0);
+    pr.costs=COSTS.map(([cat,party,f],i)=>({id:d.id+'c'+i,cat,party,committed:r10k(R*f),paid:r10k(R*f*d.paidF[i])}));
+    pr.funding={bank:r10k(R*d.fund[0]),credit:r10k(R*d.fund[1]),cash:r10k(R*d.fund[2])};
+    pr._commF=d.commF;
+    return pr});
+  // scenario overrides so the reminders have something to show today
+  const set=(pid,label,o)=>{const p=projects.find(x=>x.id===pid).plots.find(x=>x.label===label);Object.assign(p,{history:[]},o);p.history.push([dayOff(-5),o.status==='sold'?'Marked sold':`Booked, advance ${inr(o.paid)}`,o.soldBy])};
+  set('jat','B7',{status:'booked',buyer:'Arjun Deshmukh',phone:phone(),paid:300000,dueDate:dayOff(2),regDate:dayOff(2),registered:false,soldBy:'ravi'});
+  const c5=projects[0].plots.find(x=>x.label==='C5');
+  set('jat','C5',{status:'sold',buyer:'Sneha Kulkarni',phone:phone(),paid:r10k(c5.sqft*1850*.9),regDate:dayOff(2),registered:false,dueDate:null,soldBy:'suresh'});
+  set('jat','D16',{status:'booked',buyer:'Imran Shaikh',phone:phone(),paid:150000,dueDate:dayOff(1),regDate:null,registered:false,soldBy:'priya'});
+  set('jat','E7',{status:'booked',buyer:'Pooja Jadhav',phone:phone(),paid:200000,dueDate:dayOff(-4),regDate:null,registered:false,soldBy:'anand'});
+  set('jat','A9',{status:'booked',buyer:'Rahul Pawar',phone:phone(),paid:100000,dueDate:dayOff(3),regDate:dayOff(6),registered:false,soldBy:'ravi'});
+  set('har','B3',{status:'sold',buyer:'Kavita More',phone:phone(),paid:r10k(1350*1450*.8),regDate:dayOff(5),registered:false,dueDate:null,soldBy:'priya'});
+  const st={users,projects,commPaid:[],notes:[],outbox:[],sent:{},settings:{regDays:2,payDays:3},company:'Sai Developers'};
+  S=st;
+  users.filter(u=>u.role!=='owner').forEach(u=>projects.forEach(pr=>{const c=commOf(u.id,pr.id);const amt=r10k(c.earned*pr._commF);if(amt>0)st.commPaid.push({uid:u.id,pid:pr.id,amount:amt,date:dayOff(-20)})}));
+  projects.forEach(pr=>delete pr._commF);
+  const t=Date.now();
+  st.notes=[
+    {id:'n1',ts:t-35*6e4,text:'Priya Shankar booked D16 · Jatwada Greens for Imran Shaikh (advance ₹1,50,000)',actor:'priya',to:['own','ravi','suresh','anand'],read:[],kind:'booked'},
+    {id:'n2',ts:t-3*36e5,text:'Suresh Babu marked C5 · Jatwada Greens as Sold. Registration on '+fmtD(dayOff(2)),actor:'suresh',to:['own','ravi','priya','anand'],read:['ravi'],kind:'sold'},
+    {id:'n3',ts:t-26*36e5,text:'Ravi Kumar recorded a payment of ₹2,00,000 for A9 · Jatwada Greens',actor:'ravi',to:['own','priya','suresh','anand'],read:['own','priya'],kind:'money'},
+    {id:'n4',ts:t-50*36e5,text:'You updated Harsul Heights rates: guideline ₹900/sq ft, sale ₹1,450/sq ft',actor:'own',to:['ravi','priya','suresh','anand'],read:['ravi','priya','suresh','anand'],kind:'rate'}];
+  return st;
+}
+
+/* ---------- state ---------- */
+let S;const KEY='plotskart-demo-v1';
+const UI={user:'own',view:'home',proj:null,ptab:'layout',filter:'all',zoom:innerWidth<700?2.6:1,finProj:'jat',sheet:null,finPay:null,addCost:false,editFund:false,teamOpen:null,teamPay:null,addMember:false};
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.projects)return s}catch(e){}return null}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* ---------- derived ---------- */
+const U=id=>S.users.find(u=>u.id===id)||{id,name:'Plotskart',role:'system'};
+const me=()=>U(UI.user);
+const isOwner=()=>me().role==='owner';
+const canSell=()=>['owner','sales'].includes(me().role);
+const PR=id=>S.projects.find(p=>p.id===id);
+const uname=id=>id==='own'?(UI.user==='own'?'You':'Owner'):U(id).name;
+function findPlot(id){for(const pr of S.projects){const p=pr.plots.find(x=>x.id===id);if(p)return[pr,p]}return[]}
+const val=(pr,p)=>p.sqft*(p.rate||pr.rate);
+const bal=(pr,p)=>p.status==='available'?0:Math.max(0,val(pr,p)-p.paid);
+function counts(plots){const c={sold:0,booked:0,available:0,total:plots.length};plots.forEach(p=>c[p.status]++);return c}
+function commOf(uid,pid){
+  const u=U(uid);let earned=0,sold=0,booked=0,value=0;const plots=[];
+  S.projects.forEach(pr=>{if(pid&&pr.id!==pid)return;pr.plots.forEach(p=>{if(p.soldBy!==uid||p.status==='available')return;plots.push([pr,p]);
+    if(p.status==='sold'){sold++;value+=val(pr,p);earned+=val(pr,p)*(u.rate||0)/100}else booked++})});
+  const paid=S.commPaid.filter(c=>c.uid===uid&&(!pid||c.pid===pid)).reduce((a,c)=>a+c.amount,0);
+  return {earned,paid,pending:Math.max(0,earned-paid),sold,booked,value,plots};
+}
+function fin(pr){
+  let R=0,contract=0,collected=0,pendingCust=0,unsold=0;
+  pr.plots.forEach(p=>{const v=val(pr,p);R+=v;if(p.status==='available')unsold+=v;else{contract+=v;collected+=p.paid;pendingCust+=Math.max(0,v-p.paid)}});
+  const committed=pr.costs.reduce((a,c)=>a+c.committed,0),paid=pr.costs.reduce((a,c)=>a+c.paid,0);
+  let cE=0,cP=0;S.users.forEach(u=>{if(u.role==='owner')return;const c=commOf(u.id,pr.id);cE+=c.earned;cP+=c.paid});
+  const cost=committed+cE,out=paid+cP,toPay=(committed-paid)+Math.max(0,cE-cP);
+  const invested=pr.funding.bank+pr.funding.credit+pr.funding.cash;
+  return {R,contract,collected,pendingCust,unsold,committed,paid,cE,cP,cost,out,toPay,profit:R-cost,margin:(R-cost)/R,invested,net:collected-out};
+}
+function reminders(){
+  const out=[];
+  S.projects.forEach(pr=>pr.plots.forEach(p=>{
+    if(p.status==='available')return;
+    if(p.regDate&&!p.registered){const d=daysTo(p.regDate);if(d>=-7&&d<=14)out.push({key:`reg:${p.id}:${p.regDate}`,type:'reg',d,pr,p})}
+    if(bal(pr,p)>0&&p.dueDate){const d=daysTo(p.dueDate);if(d<=14)out.push({key:`pay:${p.id}:${p.dueDate}:${TODAY}`,type:'pay',d,pr,p})}
+  }));
+  const m=me();
+  return out.filter(r=>m.role!=='broker'||r.p.soldBy===m.id).sort((a,b)=>a.d-b.d);
+}
+const due=r=>r.type==='reg'?r.d<=S.settings.regDays:r.d<=S.settings.payDays;
+const myNotes=()=>S.notes.filter(n=>n.to.includes(UI.user));
+const unread=()=>myNotes().filter(n=>!n.read.includes(UI.user)).length;
+
+/* ---------- mutations ---------- */
+function notify(text,kind,to){
+  to=to||S.users.map(u=>u.id).filter(id=>id!==UI.user);
+  S.notes.unshift({id:'n'+Date.now()+Math.random().toString(36).slice(2,6),ts:Date.now(),text,actor:UI.user,to,read:[],kind});
+}
+function custMsg(pr,p,kind,text){S.outbox.unshift({ts:Date.now(),to:p.buyer,phone:p.phone,channel:'WhatsApp + SMS',plot:p.label,project:pr.name,kind,text})}
+function log(p,t){p.history.unshift([TODAY,t,UI.user])}
+function remText(r){
+  const {pr,p}=r,b=bal(pr,p);
+  if(r.type==='reg')return{team:`Registration ${whenTxt(r.d)}: ${p.label} · ${pr.name} for ${p.buyer} on ${fmtD(p.regDate)}. Prepare sale deed draft, stamp duty challan and ID copies.${b>0?' Balance '+inr(b)+' still to collect.':''}`,
+    cust:`Dear ${p.buyer}, registration of plot ${p.label} at ${pr.name} is scheduled on ${fmtD(p.regDate)} at the Sub-Registrar office. Please bring Aadhaar, PAN, 2 passport photos${b>0?' and the balance of '+inr(b):''}. – ${S.company}`};
+  return{team:`Payment ${r.d<0?'overdue by '+(-r.d)+' day'+(r.d===-1?'':'s'):'due '+whenTxt(r.d)}: ${p.buyer} owes ${inr(b)} on ${p.label} · ${pr.name}.`,
+    cust:`Dear ${p.buyer}, a reminder that the balance of ${inr(b)} for plot ${p.label} at ${pr.name} ${r.d<0?'was due on':'is due on'} ${fmtD(p.dueDate)}. Please contact us to complete the payment. – ${S.company}`};
+}
+function dispatch(r,actor){
+  const t=remText(r),to=S.users.filter(u=>u.role==='owner'||u.role==='sales'||u.id===r.p.soldBy).map(u=>u.id);
+  S.notes.unshift({id:'n'+Date.now()+Math.random().toString(36).slice(2,6),ts:Date.now(),text:t.team,actor:actor||'system',to:actor?to.filter(x=>x!==actor):to,read:[],kind:r.type});
+  custMsg(r.pr,r.p,r.type,t.cust);
+  S.sent[r.key]=TODAY;
+}
+function autoDispatch(){
+  // runs the same check a scheduled server job would run each morning
+  const saveUser=UI.user;UI.user='own';const list=reminders();UI.user=saveUser;
+  let n=0;list.forEach(r=>{if(r.d>=-7&&due(r)&&!S.sent[r.key]){dispatch(r);n++}});
+  if(n)save();return n;
+}
+
+/* ---------- views ---------- */
+function navItems(){
+  const o=isOwner();
+  return [['home','Home'],['projects','Projects'],['reminders','Reminders'],...(o?[['finance','Finance'],['team','Team']]:[]),['activity','Activity']];
+}
+function tabItems(){return isOwner()?[['home','Home'],['projects','Projects'],['reminders','Alerts'],['finance','Finance'],['team','Team']]:[['home','Home'],['projects','Projects'],['reminders','Alerts'],['activity','Activity']]}
+function mark(){return `<svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><rect x="7" y="7" width="9" height="9" rx="1.5" fill="var(--sold)"/><rect x="18" y="7" width="9" height="9" rx="1.5" fill="var(--booked)"/><rect x="7" y="18" width="9" height="9" rx="1.5" fill="var(--avail)"/><rect x="18" y="18" width="9" height="9" rx="1.5" fill="var(--accent-ink)" opacity=".85"/></svg>`}
+function shell(){
+  const v=UI.view,n=unread(),pr=UI.proj&&PR(UI.proj);
+  const title={home:'Portfolio',projects:'Projects',reminders:'Reminders',finance:'Finance',team:'Sales team & brokers',activity:'Activity',project:pr?pr.name:''}[v];
+  const roleSel=`<label class="role"><span class="lbl">Viewing as</span><select id="role" aria-label="Viewing as">${S.users.map(u=>`<option value="${u.id}"${u.id===UI.user?' selected':''}>${u.id==='own'?'Owner':esc(u.name)+' · '+(u.role==='sales'?'Sales':'Broker')}</option>`).join('')}</select></label>`;
+  return `<div class="shell">
+  <aside class="rail">
+    <div class="brand">${mark()}<div><b>Plotskart</b><small>${esc(S.company)}</small></div></div>
+    <nav class="nav">${navItems().map(([k,l])=>`<button data-act="nav" data-v="${k}" class="${v===k||(v==='project'&&k==='projects')?'on':''}">${ico(k)}${l}${k==='activity'&&n?` <span class="tag urgent">${n}</span>`:''}</button>`).join('')}</nav>
+    <div class="rail-foot"><span>Prototype with sample data. Changes are kept in this browser.</span><button class="linkbtn" data-act="reset">Reset sample data</button></div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <span class="mbrand">${mark()}</span>
+      <div class="ttl"><h2>${esc(title)}</h2></div>
+      ${roleSel}
+      <button class="bell" data-act="bell" aria-label="Notifications, ${n} unread">${ico('bell')}${n?`<span class="dot">${n}</span>`:''}</button>
+    </header>
+    <main>${({home:vHome,projects:vProjects,project:vProject,reminders:vReminders,finance:vFinance,team:vTeam,activity:vActivity}[v]||vHome)()}</main>
+  </div></div>
+  <nav class="tabbar">${tabItems().map(([k,l])=>`<button data-act="nav" data-v="${k}" class="${v===k||(v==='project'&&k==='projects')?'on':''}">${ico(k==='reminders'?'reminders':k)}${l}</button>`).join('')}</nav>`;
+}
+function stackBar(c){return `<div class="bar" role="img" aria-label="${c.sold} sold, ${c.booked} booked, ${c.available} available"><i class="s-sold" style="width:${c.sold/c.total*100}%"></i><i class="s-booked" style="width:${c.booked/c.total*100}%"></i><i class="s-available" style="width:${c.available/c.total*100}%"></i></div>`}
+function pcard(pr){
+  const c=counts(pr.plots),f=isOwner()?fin(pr):null;
+  return `<button class="pcard" data-act="open" data-id="${pr.id}">
+    <div><h3>${esc(pr.name)}</h3><p class="loc">${esc(pr.loc)}</p></div>
+    ${stackBar(c)}
+    <div class="cnts"><div><b>${c.sold}</b><span><i class="sw s-sold" style="display:inline-block;width:8px;height:8px;border-radius:2px"></i> Sold</span></div><div><b>${c.booked}</b><span><i class="sw s-booked" style="display:inline-block;width:8px;height:8px;border-radius:2px"></i> Booked</span></div><div><b>${c.available}</b><span><i class="sw s-available" style="display:inline-block;width:8px;height:8px;border-radius:2px"></i> Available</span></div></div>
+    ${f?`<div class="money"><div><span>Sales booked</span><b>${short(f.contract)}</b></div><div><span>Collected</span><b>${short(f.collected)}</b></div><div><span>Due from buyers</span><b>${short(f.pendingCust)}</b></div></div>`:`<div class="money"><div><span>Sale rate</span><b>₹${pr.rate.toLocaleString('en-IN')}/ft²</b></div><div><span>Guideline</span><b>₹${pr.guideline.toLocaleString('en-IN')}/ft²</b></div><div><span>Plots</span><b>${c.total}</b></div></div>`}
+  </button>`;
+}
+function vHome(){
+  const all=S.projects.flatMap(p=>p.plots),c=counts(all),rem=reminders().filter(r=>r.d<=7).slice(0,4),notes=myNotes().slice(0,5);
+  return `<div class="stack-v">
+  <section class="kpis">
+    <div class="kpi"><span class="lbl">Total plots</span><b>${c.total}</b><small>${S.projects.length} projects</small></div>
+    <div class="kpi"><span class="lbl"><i class="sw s-sold"></i>Sold</span><b>${c.sold}</b><small>${Math.round(c.sold/c.total*100)}% of inventory</small></div>
+    <div class="kpi"><span class="lbl"><i class="sw s-booked"></i>Booked</span><b>${c.booked}</b><small>advance received</small></div>
+    <div class="kpi"><span class="lbl"><i class="sw s-available"></i>Available</span><b>${c.available}</b><small>open for sale</small></div>
+  </section>
+  <section><div class="card-h"><h2>Projects</h2><button class="linkbtn" data-act="nav" data-v="projects">All projects</button></div><div class="plist">${S.projects.map(pcard).join('')}</div></section>
+  <div class="grid2">
+    <section class="card"><div class="card-h"><h2>Coming up</h2><button class="linkbtn" data-act="nav" data-v="reminders">All reminders</button></div>
+      <div class="list">${rem.length?rem.map(r=>`<div class="li"><span class="ic k-${r.type}">${r.type==='reg'?'REG':'₹'}</span><div class="body"><p>${r.type==='reg'?'Registration':'Payment'} · ${esc(r.p.label)} · ${esc(r.pr.name)}</p><span class="meta">${esc(r.p.buyer)} · ${r.type==='reg'?fmtD(r.p.regDate):inr(bal(r.pr,r.p))+' due '+fmtD(r.p.dueDate)}</span></div><span class="tag ${r.d<=1?'urgent':r.d<=3?'soon':'ok'}">${r.d<0?'overdue':whenTxt(r.d)}</span></div>`).join(''):'<p class="empty">Nothing due this week.</p>'}</div></section>
+    <section class="card"><div class="card-h"><h2>Recent activity</h2><button class="linkbtn" data-act="nav" data-v="activity">See all</button></div>
+      <div class="list">${notes.length?notes.map(noteRow).join(''):'<p class="empty">No updates yet.</p>'}</div></section>
+  </div></div>`;
+}
+function noteRow(n){
+  const un=!n.read.includes(UI.user),k={booked:['booked','BKD'],sold:['sold','SLD'],available:['available','REL'],reg:['reg','REG'],pay:['pay','₹'],money:['money','₹'],rate:['rate','RATE']}[n.kind]||['money','•'];
+  return `<div class="li${un?' unread':''}"><span class="ic k-${k[0]}">${k[1]}</span><div class="body"><p>${esc(n.text)}</p><span class="meta">${n.actor==='system'?'Automatic reminder':esc(uname(n.actor))} · ${fmtT(n.ts)}</span></div>${un?'<span class="udot" aria-label="unread"></span>':''}</div>`;
+}
+function vProjects(){return `<div class="stack-v"><div class="plist">${S.projects.map(pcard).join('')}</div></div>`}
+
+function mapSVG(pr){
+  const L=pr.layout;let h=`<svg class="map" id="map" viewBox="0 0 ${L.w} ${L.h}" style="width:${UI.zoom*100}%" role="img" aria-label="Plot layout of ${esc(pr.name)}"><rect class="m-land" x="0" y="0" width="${L.w}" height="${L.h}"/>`;
+  L.roads.forEach(r=>h+=`<rect class="m-road" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`);
+  (L.diag||[]).forEach(d=>h+=`<line class="m-roadl" x1="${d[0]}" y1="${d[1]}" x2="${d[2]}" y2="${d[3]}" stroke-width="${d[4]}"/>`);
+  L.parks.forEach(o=>{h+=`<polygon class="m-park" points="${o.pts}"/>`;o.t.forEach((t,i)=>h+=`<text class="m-park-t" x="${o.cx}" y="${o.cy+(i-(o.t.length-1)/2)*13}">${esc(t)}</text>`);
+    if(o.dp)h+=`<rect class="m-dp" x="${o.dp[0]-11}" y="${o.dp[1]-9}" width="22" height="18" rx="2"/><text class="m-dp-t" x="${o.dp[0]}" y="${o.dp[1]}">DP</text>`});
+  pr.plots.forEach(p=>{
+    const dim=UI.filter!=='all'&&p.status!==UI.filter,sel=UI.sheet&&UI.sheet.id===p.id;
+    const fs=Math.max(8,Math.min(16,Math.min(p.w,p.h)*.34)),cx=p.pts?p.x+p.w*.4:p.x+p.w/2,cy=p.y+p.h/2;
+    const sh=p.pts?`<polygon class="sh" points="${p.pts}"/>`:`<rect class="sh" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}"/>`;
+    h+=`<g class="m-plot st-${p.status}${dim?' dim':''}${sel?' sel':''}" data-act="plot" data-id="${p.id}" data-label="${p.label.toLowerCase()}" tabindex="0" role="button" aria-label="Plot ${p.label}, ${LBL[p.status]}, ${p.sqft} square feet">${sh}<text x="${cx}" y="${cy}" font-size="${fs}">${p.label}</text></g>`});
+  L.labels.forEach(l=>h+=`<text class="m-lbl" x="${l.x}" y="${l.y}"${l.r?` transform="rotate(${l.r} ${l.x} ${l.y})"`:''}>${l.t}</text>`);
+  const [cx,cy]=L.compass;h+=`<g class="m-comp" transform="translate(${cx} ${cy})"><circle r="20"/><path d="M0,-15 L6,4 L0,0 L-6,4 Z"/><text y="16">N</text></g>`;
+  return h+'</svg>';
+}
+function vProject(){
+  const pr=PR(UI.proj);if(!pr)return vProjects();
+  const c=counts(pr.plots),t=UI.ptab;
+  let body='';
+  if(t==='layout'){
+    const chip=(k,l)=>`<button class="chip${UI.filter===k?' on':''}" data-act="filter" data-v="${k}" aria-pressed="${UI.filter===k}">${k!=='all'?`<i class="sw s-${k}" style="background:var(--${k==='available'?'avail':k})"></i>`:''}${l} <span class="n">${k==='all'?c.total:c[k]}</span></button>`;
+    body=`<div class="maptools"><div class="chips">${chip('all','All')}${chip('available','Available')}${chip('booked','Booked')}${chip('sold','Sold')}</div>
+      <div class="tools-r"><input id="plotq" type="search" placeholder="Find plot, e.g. B7" aria-label="Find plot"><div class="zoom"><button data-act="zoom" data-v="-1" aria-label="Zoom out">−</button><button data-act="zoom" data-v="0" aria-label="Fit to width">⤢</button><button data-act="zoom" data-v="1" aria-label="Zoom in">+</button></div></div></div>
+      <div class="mapwrap" id="mapwrap">${mapSVG(pr)}</div>
+      <p class="hint">Tap a plot for its size, facing, vastu notes and price. Red is available, yellow is booked, green is sold. Every change appears for the whole team at once.</p>`;
+  }else if(t==='list'){
+    const rows=pr.plots.filter(p=>UI.filter==='all'||p.status===UI.filter).sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
+    body=`<div class="chips">${['all','available','booked','sold'].map(k=>`<button class="chip${UI.filter===k?' on':''}" data-act="filter" data-v="${k}">${k==='all'?'All':LBL[k]} <span class="n">${k==='all'?c.total:c[k]}</span></button>`).join('')}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Plot</th><th>Status</th><th class="r">Sq ft</th><th class="r">Cents</th><th>Size (ft)</th><th>Facing</th><th class="r">Price</th><th>Buyer</th><th>By</th></tr></thead><tbody>
+    ${rows.map(p=>`<tr class="click" data-act="plot" data-id="${p.id}"><td class="mono"><b>${p.label}</b></td><td><span class="pill st-${p.status}">${LBL[p.status]}</span></td><td class="r">${p.sqft.toLocaleString('en-IN')}</td><td class="r">${(p.sqft/435.6).toFixed(2)}</td><td class="mono">${p.front} × ${p.depth}</td><td>${p.facing.map(f=>DIR[f]).join(' + ')}</td><td class="r">${short(val(pr,p))}</td><td>${esc(p.buyer||'—')}</td><td>${p.soldBy?esc(uname(p.soldBy)):'—'}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  }else{
+    const q=`${pr.lat},${pr.lng}`;
+    const totSq=pr.plots.reduce((a,p)=>a+p.sqft,0);
+    body=`<div class="grid2">
+      <section class="card sec"><h2>Location</h2><p>${esc(pr.loc)}</p><p class="mono muted">${pr.lat.toFixed(4)}° N, ${pr.lng.toFixed(4)}° E</p>
+        <div class="btns"><a class="btn pri" href="https://www.google.com/maps/dir/?api=1&destination=${q}" target="_blank" rel="noopener">Get directions</a><a class="btn" href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">Open in Google Maps</a></div>
+        <div class="dl"><div><span class="lbl">Approval</span><b>${esc(pr.approval)}</b></div><div><span class="lbl">Launched</span><b>${esc(pr.launched)}</b></div><div><span class="lbl">Saleable area</span><b>${totSq.toLocaleString('en-IN')} ft²</b></div><div><span class="lbl">In cents / acres</span><b>${(totSq/435.6).toFixed(1)} c · ${(totSq/43560).toFixed(2)} ac</b></div><div class="wide"><span class="lbl">Open spaces & utilities</span><b>${pr.layout.parks.map(o=>o.t.join(' ')).join('; ')}</b></div></div>
+      </section>
+      <section class="card sec"><h2>Pricing</h2>
+        <div class="dl"><div><span class="lbl">Guideline value</span><b>₹${pr.guideline.toLocaleString('en-IN')} / ft²</b></div><div><span class="lbl">Sale price</span><b>₹${pr.rate.toLocaleString('en-IN')} / ft²</b></div><div><span class="lbl">Guideline per cent</span><b>${inr(pr.guideline*435.6)}</b></div><div><span class="lbl">Sale price per cent</span><b>${inr(pr.rate*435.6)}</b></div><div class="wide"><span class="lbl">Last changed</span><b>${esc(uname(pr.rateBy))} · ${fmtD(pr.rateOn)}</b></div></div>
+        ${canSell()?`<form class="f" data-form="rates"><h3>Update rates</h3><label>Guideline value (₹/ft²)<input id="f-gl" name="guideline" type="number" min="0" step="10" value="${pr.guideline}" required></label><label>Sale price (₹/ft²)<input id="f-rt" name="rate" type="number" min="0" step="10" value="${pr.rate}" required></label><div class="wide btns"><button class="btn pri" type="submit">Save and notify team</button></div></form>`:'<p class="muted">Only the owner and sales team can change rates.</p>'}
+      </section></div>`;
+  }
+  return `<div class="stack-v"><div><button class="back" data-act="nav" data-v="projects">← All projects</button>
+    <div class="phead"><div><h1>${esc(pr.name)}</h1><p>${esc(pr.loc)}</p></div>
+    <div style="min-width:220px;flex:0 1 320px">${stackBar(c)}<p class="hint mono">${c.sold} sold · ${c.booked} booked · ${c.available} available</p></div></div></div>
+    <div class="seg" role="tablist">${[['layout','Layout'],['list','Plot list'],['info','Location & pricing']].map(([k,l])=>`<button role="tab" aria-selected="${t===k}" class="${t===k?'on':''}" data-act="ptab" data-v="${k}">${l}</button>`).join('')}</div>
+    ${body}</div>`;
+}
+
+function vReminders(){
+  const list=reminders(),o=canSell();
+  const opt=(id,v)=>[1,2,3,5,7].map(n=>`<option value="${n}"${n===v?' selected':''}>${n} day${n>1?'s':''}</option>`).join('');
+  const card=r=>{
+    const t=remText(r),b=bal(r.pr,r.p),sent=S.sent[r.key],cls=r.d<=1?'urgent':r.d<=3?'soon':'';
+    const wa=`https://wa.me/${(r.p.phone||'').replace(/\D/g,'')}?text=${encodeURIComponent(t.cust)}`;
+    return `<article class="rem"><div class="when ${cls}"><b>${Math.abs(r.d)}</b><small>${r.d<0?'days late':r.d===1?'day':'days'}</small></div>
+      <div class="body" style="min-width:0"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="tag ${r.type==='reg'?'ok':'soon'}">${r.type==='reg'?'Registration':'Balance payment'}</span><b>${esc(r.p.label)} · ${esc(r.pr.name)}</b></div>
+      <p style="margin-top:4px">${esc(r.p.buyer)} <span class="mono muted">${esc(r.p.phone)}</span></p>
+      <p class="muted">${r.type==='reg'?`Registration on ${fmtD(r.p.regDate)}${b>0?` · balance ${inr(b)}`:''}`:`${inr(b)} due ${fmtD(r.p.dueDate)} · paid so far ${inr(r.p.paid)}`} · handled by ${esc(uname(r.p.soldBy))}</p>
+      <p class="hint">${sent?`Sent to owner, sales team and customer on ${fmtD(sent)}`:due(r)?'Due to send now':`Goes out automatically on ${fmtD(dayOff(r.d-(r.type==='reg'?S.settings.regDays:S.settings.payDays)))}`}</p>
+      ${o?`<div class="msg"><span class="lbl">Message to customer</span><br>${esc(t.cust)}</div>
+      <div class="btns" style="margin-top:10px"><button class="btn sm pri" data-act="remind" data-key="${r.key}">${sent?'Send again':'Send now'}</button><a class="btn sm" href="${wa}" target="_blank" rel="noopener">Open in WhatsApp</a><button class="btn sm ghost" data-act="copy" data-text="${esc(t.cust)}">Copy message</button><button class="btn sm ghost" data-act="plot" data-id="${r.p.id}">Open plot</button></div>`:`<div class="btns" style="margin-top:10px"><button class="btn sm ghost" data-act="plot" data-id="${r.p.id}">Open plot</button></div>`}
+      </div></article>`};
+  const reg=list.filter(r=>r.type==='reg'),pay=list.filter(r=>r.type==='pay');
+  return `<div class="stack-v">
+    ${o?`<section class="card"><div class="card-h"><h2>When reminders go out</h2></div><div class="setrow">
+      <label>Registration alert <select id="s-reg" data-set="regDays">${opt('reg',S.settings.regDays)}</select> before</label>
+      <label>Payment reminder from <select id="s-pay" data-set="payDays">${opt('pay',S.settings.payDays)}</select> before due date, then daily while overdue</label></div>
+      <p class="hint">Owner and sales team get an app notification. The customer gets WhatsApp and SMS.</p></section>`:''}
+    <section class="sec"><h2>Registrations</h2><div class="rem-list">${reg.length?reg.map(card).join(''):'<p class="empty">No registrations in the next two weeks.</p>'}</div></section>
+    <section class="sec"><h2>Pending payments from customers</h2><div class="rem-list">${pay.length?pay.map(card).join(''):'<p class="empty">No balances due in the next two weeks.</p>'}</div></section>
+    ${o?`<section class="card"><div class="card-h"><h2>Messages sent to customers</h2><span class="muted">${S.outbox.length}</span></div><p class="demo">In this prototype messages are logged here. In the store app they go through the WhatsApp Business API and an SMS gateway.</p>
+      <div class="list">${S.outbox.slice(0,12).map(m=>`<div class="li"><span class="ic k-${m.kind==='reg'?'reg':m.kind==='pay'?'pay':'booked'}">${m.kind==='reg'?'REG':m.kind==='pay'?'₹':'BKD'}</span><div class="body"><p>${esc(m.text)}</p><span class="meta">To ${esc(m.to)} · ${esc(m.phone)} · ${m.channel} · ${fmtT(m.ts)}</span></div></div>`).join('')||'<p class="empty">No messages yet.</p>'}</div></section>`:''}
+  </div>`;
+}
+
+function vFinance(){
+  if(!isOwner())return vHome();
+  const pr=PR(UI.finProj),f=fin(pr),F=pr.funding;
+  const tile=(l,v,s,cls='')=>`<div class="tile ${cls}"><span class="lbl">${l}</span><b>${v}</b>${s?`<small>${s}</small>`:''}</div>`;
+  const fund=[['Bank loan',F.bank,'var(--accent)'],['Credit / private finance',F.credit,'var(--booked)'],['Own cash',F.cash,'var(--sold)']];
+  const custs=pr.plots.filter(p=>bal(pr,p)>0).sort((a,b)=>bal(pr,b)-bal(pr,a));
+  const owe=pr.costs.filter(c=>c.committed>c.paid).map(c=>[c.party,c.cat,c.committed-c.paid]);
+  S.users.filter(u=>u.role!=='owner').forEach(u=>{const c=commOf(u.id,pr.id);if(c.pending>0)owe.push([u.name,u.role==='broker'?'Broker commission':'Sales commission',c.pending])});
+  owe.sort((a,b)=>b[2]-a[2]);
+  const byCat={};pr.costs.forEach(c=>{(byCat[c.cat]=byCat[c.cat]||[]).push(c)});
+  return `<div class="stack-v">
+  <div class="seg">${S.projects.map(p=>`<button class="${p.id===pr.id?'on':''}" data-act="finproj" data-v="${p.id}">${esc(p.name)}</button>`).join('')}</div>
+  <section class="tiles">
+    ${tile('Projected profit',short(f.profit),`${(f.margin*100).toFixed(1)}% margin if all plots sell at today's rate`,'hero')}
+    ${tile('Projected revenue',short(f.R),`${short(f.unsold)} still unsold`)}
+    ${tile('Total cost',short(f.cost),`incl. ${short(f.cE)} commission`)}
+    ${tile('Collected from buyers',short(f.collected),`of ${short(f.contract)} sold or booked`)}
+    ${tile('Due from buyers',short(f.pendingCust),`${custs.length} customers`)}
+    ${tile('We still owe',short(f.toPay),`${owe.length} parties`)}
+  </section>
+  <div class="grid2">
+    <section class="card"><div class="card-h"><h2>Money invested</h2><b class="num">${short(f.invested)}</b></div>
+      <div class="bar" style="height:14px">${fund.map(([l,v,c])=>`<i style="width:${v/f.invested*100}%;background:${c}"></i>`).join('')}</div>
+      <div class="list" style="margin-top:8px">${fund.map(([l,v,c])=>`<div class="li"><span class="sw" style="width:12px;height:12px;border-radius:3px;background:${c};margin-top:4px;flex:none"></span><div class="body"><p>${l}</p></div><b class="num">${inr(v)}</b><span class="muted num" style="width:48px;text-align:right">${Math.round(v/f.invested*100)}%</span></div>`).join('')}</div>
+      <p class="hint">Cash position: collected ${short(f.collected)} − paid out ${short(f.out)} = <b class="${f.net>=0?'pos':'neg'}">${short(f.net)}</b></p>
+      ${UI.editFund?`<form class="f" data-form="fund" style="margin-top:10px"><label>Bank loan (₹)<input id="f-bank" name="bank" type="number" min="0" value="${F.bank}"></label><label>Credit (₹)<input id="f-credit" name="credit" type="number" min="0" value="${F.credit}"></label><label>Own cash (₹)<input id="f-cash" name="cash" type="number" min="0" value="${F.cash}"></label><div class="wide btns"><button class="btn pri" type="submit">Save</button><button class="btn" type="button" data-act="editfund">Cancel</button></div></form>`:`<button class="btn sm" data-act="editfund" style="margin-top:10px">Edit funding</button>`}
+    </section>
+    <section class="card"><div class="card-h"><h2>Customers yet to pay</h2><b class="num">${short(f.pendingCust)}</b></div>
+      <div class="list">${custs.slice(0,8).map(p=>`<div class="li" data-act="plot" data-id="${p.id}" style="cursor:pointer"><span class="pill st-${p.status}">${p.label}</span><div class="body"><p>${esc(p.buyer)}</p><span class="meta">${p.dueDate?'due '+fmtD(p.dueDate):p.regDate?'by registration '+fmtD(p.regDate):''}</span></div><b class="num">${inr(bal(pr,p))}</b></div>`).join('')||'<p class="empty">Nobody owes money on this project.</p>'}</div>
+      ${custs.length>8?`<p class="hint">+ ${custs.length-8} more in the plot list</p>`:''}
+    </section>
+  </div>
+  <section class="card"><div class="card-h"><h2>Spend by head</h2><button class="btn sm" data-act="addcost">${UI.addCost?'Close':'Add expense'}</button></div>
+    ${UI.addCost?`<form class="f" data-form="cost" style="margin-bottom:12px"><label>Head<select id="c-cat" name="cat">${CATS.map(c=>`<option>${c}</option>`).join('')}</select></label><label>Paid to (party)<input id="c-party" name="party" required placeholder="e.g. Road contractor"></label><label>Total agreed (₹)<input id="c-com" name="committed" type="number" min="0" required></label><label>Paid now (₹)<input id="c-paid" name="paid" type="number" min="0" value="0"></label><div class="wide btns"><button class="btn pri" type="submit">Add</button></div></form>`:''}
+    <div class="tbl-wrap"><table><thead><tr><th>Head</th><th>Party</th><th class="r">Agreed</th><th class="r">Paid</th><th class="r">To pay</th><th>Progress</th><th></th></tr></thead><tbody>
+    ${pr.costs.map(c=>`<tr><td>${esc(c.cat)}</td><td>${esc(c.party)}</td><td class="r">${inr(c.committed)}</td><td class="r">${inr(c.paid)}</td><td class="r ${c.committed-c.paid>0?'neg':''}">${inr(c.committed-c.paid)}</td><td><span class="minibar"><i style="width:${c.committed?Math.min(100,c.paid/c.committed*100):0}%"></i></span></td><td>${c.committed>c.paid?`<button class="btn sm" data-act="finpay" data-id="${c.id}">Record payment</button>`:'<span class="tag">Settled</span>'}</td></tr>
+      ${UI.finPay===c.id?`<tr><td colspan="7"><form class="f" data-form="costpay"><label>Amount paid to ${esc(c.party)} (₹)<input id="cp-amt" name="amount" type="number" min="1" max="${c.committed-c.paid}" value="${c.committed-c.paid}" required></label><div class="btns" style="align-self:end"><button class="btn pri" type="submit">Save payment</button><button class="btn" type="button" data-act="finpay" data-id="">Cancel</button></div></form></td></tr>`:''}`).join('')}
+    <tr><td>Sales & broker commission</td><td>From Team page</td><td class="r">${inr(f.cE)}</td><td class="r">${inr(f.cP)}</td><td class="r ${f.cE-f.cP>0?'neg':''}">${inr(Math.max(0,f.cE-f.cP))}</td><td><span class="minibar"><i style="width:${f.cE?Math.min(100,f.cP/f.cE*100):0}%"></i></span></td><td><button class="btn sm ghost" data-act="nav" data-v="team">Team</button></td></tr>
+    </tbody><tfoot><tr><td colspan="2">Total</td><td class="r">${inr(f.cost)}</td><td class="r">${inr(f.out)}</td><td class="r">${inr(f.toPay)}</td><td colspan="2"></td></tr></tfoot></table></div>
+  </section>
+  <section class="card"><div class="card-h"><h2>Who we need to pay</h2><b class="num">${short(f.toPay)}</b></div>
+    <div class="list">${owe.map(([p,c,a])=>`<div class="li"><div class="body"><p>${esc(p)}</p><span class="meta">${esc(c)}</span></div><b class="num neg">${inr(a)}</b></div>`).join('')||'<p class="empty">All parties are paid.</p>'}</div>
+  </section></div>`;
+}
+
+function vTeam(){
+  if(!isOwner())return vHome();
+  const rows=S.users.filter(u=>u.role!=='owner').map(u=>[u,commOf(u.id)]);
+  const own=commOf('own');
+  const tot=rows.reduce((a,[,c])=>({e:a.e+c.earned,p:a.p+c.paid,n:a.n+c.pending}),{e:0,p:0,n:0});
+  return `<div class="stack-v">
+  <section class="tiles"><div class="tile"><span class="lbl">Commission earned</span><b>${short(tot.e)}</b><small>on sold plots</small></div><div class="tile"><span class="lbl">Paid out</span><b>${short(tot.p)}</b></div><div class="tile hero"><span class="lbl">Still to pay</span><b>${short(tot.n)}</b><small>${rows.filter(([,c])=>c.pending>0).length} people</small></div><div class="tile"><span class="lbl">Sold directly by you</span><b>${own.sold}</b><small>${short(own.value)}, no commission</small></div></section>
+  <div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Role</th><th class="r">Rate</th><th class="r">Sold</th><th class="r">Booked</th><th class="r">Sales value</th><th class="r">Earned</th><th class="r">Paid</th><th class="r">Pending</th><th></th></tr></thead><tbody>
+  ${rows.map(([u,c])=>`<tr class="click" data-act="teamopen" data-id="${u.id}"><td><b>${esc(u.name)}</b><br><span class="mono muted" style="font-size:.76rem">${esc(u.phone||'')}</span></td><td><span class="tag">${u.role==='sales'?'Sales':'Broker'}</span></td><td class="r">${u.rate}%</td><td class="r">${c.sold}</td><td class="r">${c.booked}</td><td class="r">${short(c.value)}</td><td class="r">${inr(c.earned)}</td><td class="r">${inr(c.paid)}</td><td class="r ${c.pending>0?'neg':''}">${inr(c.pending)}</td><td>${c.pending>0?`<button class="btn sm" data-act="teampay" data-id="${u.id}">Pay</button>`:'<span class="tag">Settled</span>'}</td></tr>
+    ${UI.teamPay===u.id?`<tr><td colspan="10"><form class="f" data-form="commpay"><label>Project<select id="cm-p" name="pid">${S.projects.map(p=>{const x=commOf(u.id,p.id);return `<option value="${p.id}"${x.pending>0?'':' disabled'}>${esc(p.name)} · pending ${inr(x.pending)}</option>`}).join('')}</select></label><label>Amount (₹)<input id="cm-a" name="amount" type="number" min="1" required value="${Math.round(c.pending)}"></label><div class="wide btns"><button class="btn pri" type="submit">Record commission payment</button><button class="btn" type="button" data-act="teampay" data-id="">Cancel</button></div></form></td></tr>`:''}
+    ${UI.teamOpen===u.id?`<tr><td colspan="10" style="white-space:normal;background:var(--sunk)"><div class="lbl" style="margin-bottom:6px">Plots handled by ${esc(u.name)}</div><div class="chips">${c.plots.map(([pr,p])=>`<button class="chip" data-act="plot" data-id="${p.id}"><i class="sw" style="background:var(--${p.status==='sold'?'sold':'booked'})"></i>${p.label} · ${esc(pr.name)} <span class="n">${short(val(pr,p))}</span></button>`).join('')||'<span class="muted">No plots yet.</span>'}</div>
+      ${S.commPaid.filter(x=>x.uid===u.id).length?`<div class="lbl" style="margin:12px 0 6px">Commission payments</div>${S.commPaid.filter(x=>x.uid===u.id).map(x=>`<div class="mono" style="font-size:.82rem">${fmtD(x.date)} · ${esc(PR(x.pid).name)} · ${inr(x.amount)}</div>`).join('')}`:''}</td></tr>`:''}`).join('')}
+  </tbody></table></div>
+  <p class="hint">Commission is earned when a plot is marked sold. Tap a row to see the plots and payments.</p>
+  <section class="card"><div class="card-h"><h2>Add a team member or broker</h2><button class="btn sm" data-act="addmember">${UI.addMember?'Close':'Add'}</button></div>
+  ${UI.addMember?`<form class="f" data-form="member"><label>Name<input id="m-n" name="name" required></label><label>Mobile<input id="m-p" name="phone" type="tel" required placeholder="+91"></label><label>Role<select id="m-r" name="role"><option value="sales">Sales team</option><option value="broker">Broker</option></select></label><label>Commission (%)<input id="m-c" name="rate" type="number" min="0" step="0.25" value="1.5"></label><div class="wide btns"><button class="btn pri" type="submit">Add member</button></div></form>`:'<p class="muted">New members can log in to the app and see every project layout live.</p>'}</section>
+  </div>`;
+}
+function vActivity(){
+  const n=myNotes();
+  setTimeout(()=>{let ch=false;n.forEach(x=>{if(!x.read.includes(UI.user)){x.read.push(UI.user);ch=true}});if(ch){save();}},1500);
+  return `<div class="stack-v"><section class="card"><div class="card-h"><h2>Updates for ${UI.user==='own'?'you':esc(me().name)}</h2><span class="muted">${unread()} unread</span></div><div class="list">${n.map(noteRow).join('')||'<p class="empty">No updates yet. Bookings, sales, rate changes and reminders appear here.</p>'}</div></section></div>`;
+}
+
+/* ---------- plot sheet ---------- */
+function sheetPlot(){
+  const [pr,p]=findPlot(UI.sheet.id);if(!p)return'';
+  const v=val(pr,p),g=p.sqft*pr.guideline,vs=vastu(p),m=UI.sheet.mode,role=me().role,b=bal(pr,p),sell=canSell();
+  const team=S.users.map(u=>`<option value="${u.id}"${u.id===UI.user?' selected':''}>${u.id==='own'?'Owner (direct)':esc(u.name)}</option>`).join('');
+  const bySel=role==='broker'?`<input type="hidden" name="by" value="${UI.user}">`:`<label>Sold by<select id="p-by" name="by">${team}</select></label>`;
+  let form='';
+  if(m==='book')form=`<form class="f" data-form="book"><h3>Book ${p.label}</h3><label>Customer name<input id="p-n" name="buyer" required></label><label>Mobile (WhatsApp)<input id="p-ph" name="phone" type="tel" required placeholder="+91"></label><label>Advance received (₹)<input id="p-adv" name="advance" type="number" min="0" required value="${r10k(v*.1)}"></label><label>Balance due by<input id="p-due" name="due" type="date" required value="${dayOff(30)}"></label><label>Registration date (optional)<input id="p-reg" name="reg" type="date"></label>${bySel}<div class="wide btns"><button class="btn pri" type="submit">Confirm booking</button><button class="btn" type="button" data-act="mode" data-v="">Cancel</button></div></form>`;
+  if(m==='sell')form=`<form class="f" data-form="sell"><h3>Mark ${p.label} as sold</h3>${p.status==='available'?`<label>Customer name<input id="s-n" name="buyer" required></label><label>Mobile (WhatsApp)<input id="s-ph" name="phone" type="tel" required placeholder="+91"></label>${bySel}`:''}<label>Amount received now (₹)<input id="s-amt" name="amount" type="number" min="0" value="${p.status==='available'?Math.round(v):Math.round(b)}"></label><label>Registration date<input id="s-reg" name="reg" type="date" value="${p.regDate||dayOff(7)}" required></label><div class="wide btns"><button class="btn pri" type="submit">Mark sold</button><button class="btn" type="button" data-act="mode" data-v="">Cancel</button></div></form>`;
+  if(m==='pay')form=`<form class="f" data-form="pay"><h3>Record customer payment</h3><label>Amount (₹)<input id="y-amt" name="amount" type="number" min="1" max="${Math.round(b)}" value="${Math.round(b)}" required></label><label>Next due date<input id="y-due" name="due" type="date" value="${p.dueDate||''}"></label><div class="wide btns"><button class="btn pri" type="submit">Save payment</button><button class="btn" type="button" data-act="mode" data-v="">Cancel</button></div></form>`;
+  if(m==='reg')form=`<form class="f" data-form="reg"><h3>Registration date</h3><label class="wide">Date at Sub-Registrar office<input id="r-d" name="reg" type="date" value="${p.regDate||dayOff(7)}" required></label><div class="wide btns"><button class="btn pri" type="submit">Save and notify</button><button class="btn" type="button" data-act="mode" data-v="">Cancel</button></div></form>`;
+  if(m==='rate')form=`<form class="f" data-form="prate"><h3>Price for ${p.label}</h3><label class="wide">Sale rate (₹/ft²). Leave empty to use the project rate of ₹${pr.rate}.<input id="pr-r" name="rate" type="number" min="0" step="10" value="${p.rate||''}"></label><div class="wide btns"><button class="btn pri" type="submit">Save</button><button class="btn" type="button" data-act="mode" data-v="">Cancel</button></div></form>`;
+  const acts=[];
+  if(p.status==='available'){acts.push(['book','Book plot','pri']);if(sell)acts.push(['sell','Mark sold',''])}
+  if(p.status==='booked'&&sell){acts.push(['pay','Record payment','pri'],['sell','Mark sold',''],['reg',p.regDate?'Change registration date':'Set registration date',''])}
+  if(p.status==='sold'&&sell){if(b>0)acts.push(['pay','Record payment','pri']);if(!p.registered)acts.push(['reg',p.regDate?'Change registration date':'Set registration date',''])}
+  if(sell&&p.status==='available')acts.push(['rate','Change plot price','ghost']);
+  return `<div class="sh-h"><div class="t"><span class="lbl">${esc(pr.name)}</span><h2>Plot ${p.label}</h2><span class="pill st-${p.status}">${LBL[p.status]}${p.status==='sold'&&p.registered?' · registered':''}</span></div><button class="x" data-act="close" aria-label="Close">✕</button></div>
+  <div class="dl">
+    <div><span class="lbl">Size</span><b>${p.front} × ${p.depth} ft</b></div><div><span class="lbl">Area</span><b>${p.sqft.toLocaleString('en-IN')} ft²</b></div>
+    <div><span class="lbl">In cents</span><b>${(p.sqft/435.6).toFixed(2)} cents</b></div><div><span class="lbl">In sq m</span><b>${(p.sqft*.092903).toFixed(1)} m²</b></div>
+    <div><span class="lbl">Facing</span><b>${p.facing.map(f=>DIR[f]).join(' + ')}${p.facing.length>1?' (corner)':''}</b></div><div><span class="lbl">Sale rate</span><b>₹${(p.rate||pr.rate).toLocaleString('en-IN')}/ft²${p.rate?' *':''}</b></div>
+    <div><span class="lbl">Sale value</span><b>${inr(v)}</b></div><div><span class="lbl">Guideline value</span><b>${inr(g)}</b></div>
+  </div>
+  <section class="sec"><div class="card-h" style="margin:0"><h3>Vastu</h3><span class="stars" aria-label="${vs.score} out of 5">${stars(vs.score)}</span></div>
+    <div class="vastu">${vs.notes.map(([t,d,k])=>`<div class="vrow"><i class="${k}"></i><div><b>${t}</b><small>${d}</small></div></div>`).join('')}</div>
+    <p class="hint">Based on common vastu guidance for plot facing, corner and shape.</p></section>
+  ${p.status!=='available'?`<section class="sec"><h3>Customer & payment</h3><div class="dl">
+    <div><span class="lbl">Customer</span><b>${esc(p.buyer)}</b></div><div><span class="lbl">Mobile</span><b>${esc(p.phone)}</b></div>
+    <div><span class="lbl">Paid</span><b>${inr(p.paid)}</b></div><div><span class="lbl">Balance</span><b class="${b>0?'neg':'pos'}">${inr(b)}</b></div>
+    <div><span class="lbl">Balance due</span><b>${b>0&&p.dueDate?fmtD(p.dueDate):'—'}</b></div><div><span class="lbl">Registration</span><b>${p.regDate?fmtD(p.regDate):'Not set'}</b></div>
+    <div class="wide"><span class="lbl">Handled by</span><b>${esc(uname(p.soldBy))}</b></div></div></section>`:''}
+  ${form||(acts.length?`<div class="btns">${acts.map(([k,l,c])=>`<button class="btn ${c}" data-act="mode" data-v="${k}">${l}</button>`).join('')}
+    ${p.status==='sold'&&!p.registered&&p.regDate&&sell?`<button class="btn" data-act="registered">Registration done</button>`:''}
+    ${p.status==='booked'&&isOwner()?`<button class="btn ghost danger" data-act="release">Cancel booking</button>`:''}</div>`:'<p class="muted">You can view this plot. The owner or sales team can change it.</p>')}
+  ${p.history.length?`<section class="sec"><h3>History</h3><div class="list">${p.history.slice(0,8).map(([d,t,u])=>`<div class="li"><div class="body"><p>${esc(t)}</p><span class="meta">${esc(uname(u))} · ${fmtD(d)}</span></div></div>`).join('')}</div></section>`:''}`;
+}
+function sheetNotes(){
+  const n=myNotes();
+  setTimeout(()=>{n.forEach(x=>{if(!x.read.includes(UI.user))x.read.push(UI.user)});save()},1200);
+  return `<div class="sh-h"><div class="t"><span class="lbl">${UI.user==='own'?'Owner':esc(me().name)}</span><h2>Notifications</h2></div><button class="x" data-act="close" aria-label="Close">✕</button></div>
+  <div class="list">${n.slice(0,30).map(noteRow).join('')||'<p class="empty">No notifications yet.</p>'}</div>`;
+}
+
+/* ---------- render ---------- */
+const app=document.getElementById('app'),sheet=document.getElementById('sheet'),scrim=document.getElementById('scrim');
+function render(){
+  const w=document.getElementById('mapwrap'),sl=w&&[w.scrollLeft,w.scrollTop];
+  app.innerHTML=shell();
+  const w2=document.getElementById('mapwrap');if(w2&&sl){w2.scrollLeft=sl[0];w2.scrollTop=sl[1]}
+  if(UI.sheet){sheet.innerHTML=UI.sheet.type==='plot'?sheetPlot():sheetNotes();sheet.hidden=false;scrim.hidden=false}else{sheet.hidden=true;scrim.hidden=true}
+}
+let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2800)}
+function commit(msg){if(UI.sheet)UI.sheet.mode=null;save();render();if(msg)toast(msg)}
+
+/* ---------- actions ---------- */
+const ACT={
+  nav:d=>{UI.view=d.v;UI.proj=null;UI.sheet=null;render();scrollTo(0,0)},
+  open:d=>{UI.view='project';UI.proj=d.id;UI.ptab='layout';UI.filter='all';render();scrollTo(0,0)},
+  ptab:d=>{UI.ptab=d.v;render()},
+  filter:d=>{UI.filter=d.v;render()},
+  zoom:d=>{const v=+d.v;UI.zoom=v===0?1:Math.max(1,Math.min(5,UI.zoom+(v*.6)));const s=document.getElementById('map');if(s)s.style.width=UI.zoom*100+'%'},
+  plot:d=>{UI.sheet={type:'plot',id:d.id,mode:null};render();sheet.scrollTop=0;sheet.querySelector('.x')?.focus()},
+  bell:()=>{UI.sheet={type:'notes'};render()},
+  close:()=>{UI.sheet=null;render()},
+  mode:d=>{UI.sheet.mode=d.v||null;render();if(d.v)sheet.querySelector('form input:not([type=hidden])')?.focus()},
+  registered:()=>{const[pr,p]=findPlot(UI.sheet.id);p.registered=true;if(p.regDate&&daysTo(p.regDate)>0)p.regDate=TODAY;log(p,'Registration completed');notify(`${me().name==='You'?'Owner':me().name} completed registration of ${p.label} · ${pr.name} for ${p.buyer}`,'sold');commit('Registration marked complete')},
+  release:()=>{const[pr,p]=findPlot(UI.sheet.id);const who=p.buyer;Object.assign(p,{status:'available',buyer:null,phone:null,paid:0,dueDate:null,regDate:null,registered:false,soldBy:null});log(p,`Booking by ${who} cancelled`);notify(`Owner cancelled the booking of ${p.label} · ${pr.name}. Plot is available again.`,'available');commit('Booking cancelled. Plot is available again.')},
+  remind:d=>{const r=reminders().find(x=>x.key===d.key);if(r){dispatch(r,UI.user);commit('Reminder sent to team and customer')}},
+  copy:(d,el)=>{const done=()=>toast('Message copied');try{navigator.clipboard.writeText(d.text).then(done,()=>toast('Copy blocked. Select the message text instead.'))}catch(e){toast('Copy blocked. Select the message text instead.')}},
+  finproj:d=>{UI.finProj=d.v;UI.finPay=null;UI.addCost=false;UI.editFund=false;render()},
+  finpay:d=>{UI.finPay=d.id||null;render()},
+  addcost:()=>{UI.addCost=!UI.addCost;render()},
+  editfund:()=>{UI.editFund=!UI.editFund;render()},
+  teamopen:(d,el,e)=>{if(e.target.closest('button,form'))return;UI.teamOpen=UI.teamOpen===d.id?null:d.id;render()},
+  teampay:d=>{UI.teamPay=d.id||null;render()},
+  addmember:()=>{UI.addMember=!UI.addMember;render()},
+  reset:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();autoDispatch();UI.sheet=null;UI.view='home';save();render();toast('Sample data restored')}
+};
+const actorName=()=>UI.user==='own'?'Owner':me().name;
+const FORMS={
+  book:d=>{const[pr,p]=findPlot(UI.sheet.id);Object.assign(p,{status:'booked',buyer:d.buyer.trim(),phone:d.phone.trim(),paid:+d.advance||0,dueDate:d.due||null,regDate:d.reg||null,registered:false,soldBy:d.by||UI.user});
+    log(p,`Booked for ${p.buyer}, advance ${inr(p.paid)}`);notify(`${actorName()} booked ${p.label} · ${pr.name} for ${p.buyer} (advance ${inr(p.paid)})`,'booked');
+    custMsg(pr,p,'booked',`Dear ${p.buyer}, thank you for booking plot ${p.label} at ${pr.name}. Advance received: ${inr(p.paid)}. Balance ${inr(bal(pr,p))} is due by ${fmtD(p.dueDate)}. – ${S.company}`);
+    commit(`${p.label} booked. Team notified, customer messaged.`)},
+  sell:d=>{const[pr,p]=findPlot(UI.sheet.id);if(p.status==='available')Object.assign(p,{buyer:d.buyer.trim(),phone:d.phone.trim(),soldBy:d.by||UI.user,paid:0});
+    p.status='sold';p.paid=Math.min(val(pr,p),p.paid+(+d.amount||0));p.regDate=d.reg;p.registered=false;
+    log(p,`Marked sold, registration ${fmtD(p.regDate)}`);notify(`${actorName()} marked ${p.label} · ${pr.name} as Sold to ${p.buyer}. Registration on ${fmtD(p.regDate)}`,'sold');
+    commit(`${p.label} marked sold`)},
+  pay:d=>{const[pr,p]=findPlot(UI.sheet.id);const a=+d.amount||0;p.paid=Math.min(val(pr,p),p.paid+a);if(d.due)p.dueDate=d.due;
+    log(p,`Payment received ${inr(a)}`);notify(`${actorName()} recorded a payment of ${inr(a)} for ${p.label} · ${pr.name} (balance ${inr(bal(pr,p))})`,'money');commit('Payment saved')},
+  reg:d=>{const[pr,p]=findPlot(UI.sheet.id);p.regDate=d.reg;log(p,`Registration set for ${fmtD(p.regDate)}`);notify(`${actorName()} set registration of ${p.label} · ${pr.name} for ${fmtD(p.regDate)}`,'reg');autoDispatch();commit('Registration date saved')},
+  prate:d=>{const[pr,p]=findPlot(UI.sheet.id);p.rate=d.rate?+d.rate:null;log(p,p.rate?`Price set to ₹${p.rate}/ft²`:'Price reset to project rate');notify(`${actorName()} changed the price of ${p.label} · ${pr.name} to ₹${(p.rate||pr.rate).toLocaleString('en-IN')}/ft²`,'rate');commit('Plot price saved')},
+  rates:d=>{const pr=PR(UI.proj);pr.guideline=+d.guideline;pr.rate=+d.rate;pr.rateBy=UI.user;pr.rateOn=TODAY;notify(`${actorName()} updated ${pr.name} rates: guideline ₹${pr.guideline.toLocaleString('en-IN')}/ft², sale ₹${pr.rate.toLocaleString('en-IN')}/ft²`,'rate');commit('Rates updated for the whole team')},
+  fund:d=>{const pr=PR(UI.finProj);pr.funding={bank:+d.bank||0,credit:+d.credit||0,cash:+d.cash||0};UI.editFund=false;commit('Funding saved')},
+  cost:d=>{const pr=PR(UI.finProj);pr.costs.push({id:pr.id+'c'+Date.now(),cat:d.cat,party:d.party.trim(),committed:+d.committed||0,paid:Math.min(+d.paid||0,+d.committed||0)});UI.addCost=false;commit('Expense added')},
+  costpay:d=>{const pr=PR(UI.finProj),c=pr.costs.find(x=>x.id===UI.finPay);c.paid=Math.min(c.committed,c.paid+(+d.amount||0));UI.finPay=null;commit(`Payment to ${c.party} saved`)},
+  commpay:d=>{const u=U(UI.teamPay);S.commPaid.push({uid:u.id,pid:d.pid,amount:+d.amount,date:TODAY});notify(`Owner paid ${inr(+d.amount)} commission to ${u.name} for ${PR(d.pid).name}`,'money',[u.id]);UI.teamPay=null;commit(`Commission paid to ${u.name}`)},
+  member:d=>{S.users.push({id:'u'+Date.now(),name:d.name.trim(),phone:d.phone.trim(),role:d.role,rate:+d.rate||0});UI.addMember=false;commit(`${d.name.trim()} added`)}
+};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const f=ACT[t.dataset.act];if(f){if(t.tagName==='A')return;e.preventDefault();f(t.dataset,t,e)}});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&UI.sheet){UI.sheet=null;render()}
+  if((e.key==='Enter'||e.key===' ')&&e.target.classList?.contains('m-plot')){e.preventDefault();ACT.plot(e.target.dataset)}
+  if(e.key==='Enter'&&e.target.id==='plotq'){const q=e.target.value.trim().toLowerCase();const pr=PR(UI.proj);const p=pr&&pr.plots.find(x=>x.label.toLowerCase()===q);if(p)ACT.plot({id:p.id});else toast('No plot '+e.target.value+' in this project')}
+});
+document.addEventListener('input',e=>{if(e.target.id!=='plotq')return;const q=e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.m-plot').forEach(g=>g.classList.toggle('hit',!!q&&g.dataset.label===q));
+  const hit=q&&document.querySelector(`.m-plot[data-label="${CSS.escape(q)}"]`);if(hit)hit.scrollIntoView({block:'center',inline:'center',behavior:'smooth'})});
+document.addEventListener('change',e=>{
+  if(e.target.id==='role'){UI.user=e.target.value;UI.sheet=null;if(['finance','team'].includes(UI.view)&&!isOwner())UI.view='home';render();const n=unread();toast(`Now viewing as ${UI.user==='own'?'Owner':me().name}${n?` · ${n} new update${n>1?'s':''}`:''}`)}
+  if(e.target.dataset.set){S.settings[e.target.dataset.set]=+e.target.value;autoDispatch();commit('Reminder timing saved')}
+});
+document.addEventListener('submit',e=>{const f=e.target;if(!f.dataset.form)return;e.preventDefault();FORMS[f.dataset.form]?.(Object.fromEntries(new FormData(f)))});
+
+S=load()||seed();
+autoDispatch();
+render();
+</script>

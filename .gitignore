@@ -1,0 +1,25 @@
+node_modules
+dist
+.env
+.env.local
+supabase/.temp
+supabase/.branches
+supabase/functions/.env
+# native build output
+android/app/build
+android/.gradle
+android/local.properties
+ios/App/Pods
+ios/App/build
+# Firebase config files hold project keys; keep them out of public repos
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist
+
+# Local Netlify folder
+.netlify
+
+# playwright-cli session logs and snapshots
+.playwright-cli
+
+# built by npm run build:site3d before each website deploy
+website/assets/site3d.js
