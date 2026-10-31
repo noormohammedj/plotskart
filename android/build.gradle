@@ -1,0 +1,37 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath 'com.google.gms:google-services:4.4.4'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// OneDrive locks build files while it syncs them, which breaks Gradle. When the project sits in a
+// OneDrive folder (Noor's laptop), build outputs go to %USERPROFILE%\plotskart-android-build instead
+// (not AppData: the Claude app's container redirects new AppData folders to a private copy).
+def userHome = System.getenv('USERPROFILE')
+if (userHome && rootDir.absolutePath.toLowerCase().contains('onedrive')) {
+    allprojects { layout.buildDirectory = new File(userHome, "plotskart-android-build/${project.name}") }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Plotskart</string>
+    <string name="title_activity_main">Plotskart</string>
+    <string name="package_name">in.plotskart.app</string>
+    <string name="custom_url_scheme">in.plotskart.app</string>
+</resources>

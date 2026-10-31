@@ -1,0 +1,29 @@
+# Minimal Supabase CLI config. `supabase link --project-ref <ref>` fills in the rest.
+project_id = "plotskart"
+
+[auth]
+site_url = "http://localhost:5173"
+
+[auth.email]
+enable_signup = true
+# Users sign in with a typed code, so no redirect back into the app is needed.
+# The app accepts 6 to 10 digits; this project's dashboard sends 8.
+otp_length = 8
+
+[functions.deliver]
+verify_jwt = false
+
+[functions.lead]
+verify_jwt = false
+
+# read-layout keeps JWT verification on: only signed-in owners may call it.
+
+[functions.demo-start]
+verify_jwt = false
+
+[functions.demo-switch]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+# Meta calls it without a Supabase JWT; every POST is checked against Meta's signature instead.
+verify_jwt = false
