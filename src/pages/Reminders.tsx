@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LatestDeals, MoneyDues } from '../components/TeamDues';
 import { useData } from '../data/DataProvider';
 import { dayOff, fmtD, fmtT, inr } from '../lib/format';
 import { plotBalance } from '../lib/plots';
@@ -7,7 +8,7 @@ import { supabase } from '../lib/supabase';
 import type { CustomerMessage } from '../lib/types';
 
 export function Reminders() {
-  const { projects, plots, profile, org, canSell, isOwner, rpc, openPlot, memberName, toast } = useData();
+  const { projects, plots, profile, org, canSell, isOwner, isFinance, rpc, openPlot, memberName, toast } = useData();
   const [messages, setMessages] = useState<CustomerMessage[]>([]);
   const [sending, setSending] = useState<string | null>(null);
 
@@ -86,6 +87,26 @@ export function Reminders() {
 
   return (
     <div className="stack-v">
+      <section className="sec"><h2>Registrations</h2><div className="rem-list">{reg.length ? reg.map(card) : <p className="empty">No registrations in the next two weeks.</p>}</div></section>
+      <section className="sec"><h2>Pending payments from customers</h2><div className="rem-list">{pay.length ? pay.map(card) : <p className="empty">No balances due in the next two weeks.</p>}</div></section>
+      {isFinance && <MoneyDues />}
+      <LatestDeals />
+      {canSell && (
+        <section className="card">
+          <div className="card-h"><h2>Messages sent to customers</h2><button className="linkbtn" onClick={loadMessages}>Refresh</button></div>
+          <div className="list">
+            {messages.length ? messages.map((m) => (
+              <div className="li" key={m.id}>
+                <span className={`ic k-${m.kind === 'reg' ? 'reg' : m.kind === 'pay' ? 'pay' : 'booked'}`}>{m.kind === 'reg' ? 'REG' : m.kind === 'pay' ? '₹' : 'BKD'}</span>
+                <div className="body">
+                  <p>{m.body}</p>
+                  <span className="meta">To {m.to_name} · {m.to_phone} · WhatsApp {m.whatsapp_status} · SMS {m.sms_status} · {fmtT(m.created_at)}</span>
+                </div>
+              </div>
+            )) : <p className="empty">No messages yet.</p>}
+          </div>
+        </section>
+      )}
       <section className="card">
         <div className="card-h"><h2>My WhatsApp alerts</h2></div>
         <form className="f" onSubmit={saveWhatsApp}>
@@ -112,24 +133,6 @@ export function Reminders() {
             <label>Payment reminder from <select value={org.pay_days} onChange={(e) => setDays('pay_days', +e.target.value)}>{opts}</select> before due date, then daily while overdue</label>
           </div>
           <p className="hint">Every morning at 8 am the owner and sales team get an app notification, and the customer gets WhatsApp and SMS.</p>
-        </section>
-      )}
-      <section className="sec"><h2>Registrations</h2><div className="rem-list">{reg.length ? reg.map(card) : <p className="empty">No registrations in the next two weeks.</p>}</div></section>
-      <section className="sec"><h2>Pending payments from customers</h2><div className="rem-list">{pay.length ? pay.map(card) : <p className="empty">No balances due in the next two weeks.</p>}</div></section>
-      {canSell && (
-        <section className="card">
-          <div className="card-h"><h2>Messages sent to customers</h2><button className="linkbtn" onClick={loadMessages}>Refresh</button></div>
-          <div className="list">
-            {messages.length ? messages.map((m) => (
-              <div className="li" key={m.id}>
-                <span className={`ic k-${m.kind === 'reg' ? 'reg' : m.kind === 'pay' ? 'pay' : 'booked'}`}>{m.kind === 'reg' ? 'REG' : m.kind === 'pay' ? '₹' : 'BKD'}</span>
-                <div className="body">
-                  <p>{m.body}</p>
-                  <span className="meta">To {m.to_name} · {m.to_phone} · WhatsApp {m.whatsapp_status} · SMS {m.sms_status} · {fmtT(m.created_at)}</span>
-                </div>
-              </div>
-            )) : <p className="empty">No messages yet.</p>}
-          </div>
         </section>
       )}
     </div>

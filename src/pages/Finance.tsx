@@ -3,11 +3,11 @@ import { MonthBars } from '../components/charts';
 import { useData } from '../data/DataProvider';
 import { go } from '../data/route';
 import { commissionOf, projectFinance } from '../lib/finance';
-import { CATS, fmtD, inr, short, today } from '../lib/format';
+import { CATS, LAND_CATS, fmtD, inr, short, today } from '../lib/format';
 import { assetValue, downloadCsv, EXPENSE_CATS, FUNDING_CATS, inPeriod, INCOME_CATS, lastMonths, periods, signed } from '../lib/money';
 import { plotBalance, plotValue } from '../lib/plots';
 import { supabase } from '../lib/supabase';
-import type { Account, Asset, CommissionPayment, CostLine, Funding, LedgerEntry, PlotEvent } from '../lib/types';
+import type { Account, Asset, CommissionPayment, CostLine, Funding, LedgerEntry, PlotEvent, Project } from '../lib/types';
 
 /** Everything the money screens need, loaded once per visit. */
 export function useOwnerMoney() {
@@ -125,6 +125,8 @@ function ProjectsTab({ money }: { money: Money }) {
         {tile('Due from buyers', short(f.pendingCust), `${custs.length} customers`)}
         {tile('We still owe', short(f.toPay), `${owe.length} parties`)}
       </section>
+
+      <PerSqft pr={pr} sqft={mine.reduce((s, p) => s + Number(p.sqft), 0)} lines={f.lines} commission={f.commEarned} />
 
       <div className="grid2">
         <section className="card">
@@ -245,6 +247,37 @@ function ProjectsTab({ money }: { money: Money }) {
         </div>
       </section>
     </>
+  );
+}
+
+/** What each saleable sq ft cost: the land, then development by head, then commission, against the sale rate. */
+function PerSqft({ pr, sqft, lines, commission }: { pr: Project; sqft: number; lines: CostLine[]; commission: number }) {
+  if (!sqft) return null;
+  const rate = (n: number) => `₹${Math.round(n / sqft).toLocaleString('en-IN')}`;
+  const land = lines.filter((c) => LAND_CATS.includes(c.category)).reduce((s, c) => s + Number(c.committed), 0);
+  const heads = new Map<string, number>();
+  for (const c of lines) if (!LAND_CATS.includes(c.category)) heads.set(c.category, (heads.get(c.category) ?? 0) + Number(c.committed));
+  const dev = [...heads.values()].reduce((s, n) => s + n, 0);
+  const allIn = land + dev + commission;
+  const sale = Number(pr.sale_rate);
+  const margin = sale - allIn / sqft;
+  return (
+    <section className="card">
+      <div className="card-h"><h2>Cost per sq ft</h2><span className="lbl">on {Math.round(sqft).toLocaleString('en-IN')} sq ft of saleable {pr.kind === 'apartments' ? 'flats' : 'plots'}</span></div>
+      <section className="tiles">
+        {tile('Land purchase rate', rate(land), `${short(land)} land and registration`)}
+        {tile('Development', rate(dev), `${heads.size} heads · ${short(dev)}`)}
+        {tile('All-in cost', rate(allIn), `incl. ${rate(commission)} commission`)}
+        {tile('Margin per sq ft', `₹${Math.round(margin).toLocaleString('en-IN')}`, `selling at ₹${sale.toLocaleString('en-IN')}/sq ft`, margin > 0)}
+      </section>
+      {heads.size > 0 && (
+        <div className="list" style={{ marginTop: 8 }}>
+          {[...heads].sort((a, b) => b[1] - a[1]).map(([h, n]) => (
+            <div className="li" key={h}><div className="body"><p>{h}</p></div><span className="muted num">{short(n)}</span><b className="num" style={{ width: 84, textAlign: 'right' }}>{rate(n)}/ft²</b></div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
+import { TeamPerformance } from '../components/TeamPerformance';
 import { useData } from '../data/DataProvider';
+import { useTeamBoard, useTeamEvents } from '../lib/teamBoard';
 import { fmtD, inr, short } from '../lib/format';
 import { commissionOf, fmtCommission, plotCommission } from '../lib/finance';
 import { plotValue } from '../lib/plots';
@@ -40,6 +42,7 @@ export function Team() {
   const [paying, setPaying] = useState<{ id: string; what: 'commission' | 'salary' } | null>(null);
   const [adding, setAdding] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const board = useTeamBoard(useTeamEvents());
 
   const loadInvites = () => {
     supabase.from('invites').select('*').is('accepted_at', null).order('created_at', { ascending: false })
@@ -76,6 +79,7 @@ export function Team() {
 
   return (
     <div className="stack-v">
+      <TeamPerformance board={board} />
       <section className="tiles">
         <div className="tile"><span className="lbl">Commission earned</span><b>{short(tot.e)}</b><small>on sold plots</small></div>
         <div className="tile hero"><span className="lbl">Commission still to pay</span><b>{short(tot.n)}</b><small>{rows.filter((r) => r.c.pending > 0).length} people</small></div>

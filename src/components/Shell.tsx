@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, type ReactNode } from 'react';
 import { useData } from '../data/DataProvider';
 import { go } from '../data/route';
+import { isNative } from '../lib/native';
 import { isDemo } from '../lib/supabase';
 import { DemoBar } from './DemoBar';
 import { Icon, Mark, type IconName } from './ui';
@@ -26,12 +27,15 @@ export function Shell({ route, title, children }: { route: string; title: string
   const { theme, next } = useTheme();
   const section = route.split('/')[1] || 'home';
   const active = (k: string) => section === k || (k === 'projects' && section === 'p') || (k === 'home' && section === '');
+  // phone apps: everyone gets a Team tab (sales staff and brokers see their own commission and the team's race);
+  // Finance stays with the owner and accountant. Activity is one tap away on the bell.
   const nav: [IconName, string, string][] = [
     ['home', 'Home', '/'], ['projects', 'Projects', '/projects'], ['reminders', 'Reminders', '/reminders'],
-    ...(isFinance ? [['finance', 'Finance', '/finance'], ['team', 'Team', '/team']] as [IconName, string, string][] : []),
+    ...(isFinance ? [['finance', 'Finance', '/finance']] as [IconName, string, string][] : []),
+    ...(isFinance || isNative ? [['team', 'Team', '/team']] as [IconName, string, string][] : []),
     ['activity', 'Activity', '/activity'],
   ];
-  const tabs = isFinance ? nav.filter(([k]) => k !== 'activity') : nav;
+  const tabs = isFinance || isNative ? nav.filter(([k]) => k !== 'activity') : nav;
   const roleName = profile ? ROLE_NAMES[profile.role] : '';
   const themeLabel = theme === 'system' ? 'Theme: automatic' : theme === 'dark' ? 'Theme: dark' : 'Theme: light';
 

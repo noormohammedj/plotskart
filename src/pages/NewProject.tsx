@@ -21,6 +21,18 @@ export function NewProject() {
   const [notes, setNotes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
+  const [locating, setLocating] = useState(false);
+  const here = () => {
+    if (!navigator.geolocation) return toast('This device cannot share its location');
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setLat(p.coords.latitude.toFixed(6)); setLng(p.coords.longitude.toFixed(6)); setLocating(false); },
+      () => { setLocating(false); toast('Could not get your location. Check that Plotskart may use it in the phone settings.'); },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  };
   const [location, setLocation] = useState('');
   const [spec, setSpec] = useState<GridSpec>({ blocks: 4, rowsPerBlock: 6, frontFt: 30, depthFt: 40, mainRoadM: 9, sideRoadM: 6 });
   const [busy, setBusy] = useState(false);
@@ -124,8 +136,9 @@ export function NewProject() {
         <h3>Project details</h3>
         <label>Project name<input name="name" required value={name} onChange={(e) => setName(e.target.value)} /></label>
         <label>Location / address<input name="location" required value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Village, taluka, district" /></label>
-        <label>Latitude (for directions)<input name="lat" type="number" step="any" placeholder="19.9530" /></label>
-        <label>Longitude<input name="lng" type="number" step="any" placeholder="75.2870" /></label>
+        <label>Latitude (for directions and nearby places)<input name="lat" type="number" step="any" placeholder="19.9530" value={lat} onChange={(e) => setLat(e.target.value)} /></label>
+        <label>Longitude<input name="lng" type="number" step="any" placeholder="75.2870" value={lng} onChange={(e) => setLng(e.target.value)} /></label>
+        <div className="wide"><button type="button" className="btn sm" disabled={locating} onClick={here}>{locating ? 'Finding you…' : 'Use my current location'}</button> <span className="hint">Standing at the site? This fills in the map position, which also shows schools, hospitals and stations around the layout in 3D.</span></div>
         <label>Approval<input name="approval" placeholder="e.g. DTCP / NA order number" /></label>
         <label>Launched<input name="launched" placeholder="e.g. Jan 2026" /></label>
         <label>Guideline value (₹/ft²)<input name="guideline" type="number" min="0" required /></label>

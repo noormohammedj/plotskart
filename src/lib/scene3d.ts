@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import type { NearbyKind, NearbyPlace } from './nearby';
 
 export type SceneStatus = 'available' | 'booked' | 'sold';
 export type SceneFilter = SceneStatus | 'all';
@@ -57,7 +58,13 @@ export interface SceneHandle {
   setInteractive(on: boolean): void;
   resetView(): void;
   dispose(): void;
+  /** plot layouts only: schools, hospitals, stations and shops around the project */
+  setNearby?(places: NearbyPlace[]): void;
 }
+
+const NEARBY_COLOR: Record<NearbyKind, string> = {
+  school: '#4C7BD9', college: '#7A5BD0', hospital: '#E05263', station: '#37474F', bus: '#E8913A', shop: '#2BA59B',
+};
 
 const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -316,6 +323,36 @@ function label(text: string, color: string, px = 64) {
   return s;
 }
 
+/** a nearby place's name on a solid pill with a dot in its colour, readable over the ground and the plots */
+function placeTag(text: string, dot: string, dark: boolean, px = 56) {
+  const c = document.createElement('canvas');
+  const g = c.getContext('2d')!;
+  const font = `600 ${px}px "IBM Plex Sans","Segoe UI",system-ui,sans-serif`;
+  g.font = font;
+  const h = Math.ceil(px * 1.7), pad = px * 0.55, d = px * 0.5;
+  c.width = Math.ceil(g.measureText(text).width + pad * 3 + d);
+  c.height = h;
+  g.fillStyle = dark ? 'rgba(20,28,30,.92)' : 'rgba(255,255,255,.94)';
+  g.beginPath();
+  g.roundRect(0, 0, c.width, h, h / 2);
+  g.fill();
+  g.fillStyle = dot;
+  g.beginPath();
+  g.arc(pad + d / 2, h / 2, d / 2, 0, Math.PI * 2);
+  g.fill();
+  g.font = font;
+  g.fillStyle = dark ? '#F2F5F3' : '#14212A';
+  g.textBaseline = 'middle';
+  g.fillText(text, pad * 2 + d, h / 2 + 1);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false, depthTest: false, transparent: true }));
+  s.renderOrder = 10;
+  s.scale.set(c.width / c.height, 1, 1);
+  return s;
+}
+
 /** low-poly trees as two instanced meshes (trunks and crowns) */
 function forest(spots: { x: number; z: number; s: number }[], pal: Palette, dark: boolean) {
   const g = new THREE.Group();
@@ -532,7 +569,43 @@ export function plotScene(el: HTMLElement, layout: LayoutLike, plots: PlotItem[]
   refresh();
   st.frame(Math.hypot(W, D) / 2, new THREE.Vector3(0, 0, D * 0.06), { az: 0.5, el: 0.9, dist: 1.08 });
 
+  // places around the project: a pin per place on a ring outside the layout, in its real compass direction
+  // (north is up on every drawing, so -z), nearer places closer in; the distance is in the label
+  const around = new THREE.Group();
+  scene.add(around);
+  const pinGeo = new THREE.CylinderGeometry(0.35, 0.35, 1, 8), headGeo = new THREE.SphereGeometry(1.4, 16, 12);
+  const setNearby = (places: NearbyPlace[]) => {
+    for (const o of [...around.children]) {
+      o.traverse((x) => { const m = (x as THREE.Mesh | THREE.Sprite).material as THREE.MeshStandardMaterial | undefined; m?.map?.dispose(); m?.dispose(); });
+      around.remove(o);
+    }
+    // just outside the layout's edge in that direction, so the pins stay in the opening view; farther = a bit further out
+    const S = Math.max(W, D);
+    for (const p of places) {
+      const b = THREE.MathUtils.degToRad(p.bearing), sx = Math.sin(b), sz = -Math.cos(b);
+      const edge = Math.min(Math.abs(sx) > 1e-6 ? W / 2 / Math.abs(sx) : Infinity, Math.abs(sz) > 1e-6 ? D / 2 / Math.abs(sz) : Infinity);
+      const r = edge + S * 0.06 + S * 0.2 * Math.sqrt(Math.min(1, p.dist / 5000));
+      const x = r * sx, z = r * sz;
+      const mat = new THREE.MeshStandardMaterial({ color: NEARBY_COLOR[p.kind], roughness: 0.5 });
+      const pin = new THREE.Group();
+      const stem = new THREE.Mesh(pinGeo, mat);
+      stem.scale.y = 5;
+      stem.position.y = 2.5;
+      const head = new THREE.Mesh(headGeo, mat);
+      head.position.y = 6;
+      head.castShadow = true;
+      const tag = placeTag(`${p.name} · ${p.dist < 1000 ? `${Math.round(p.dist / 50) * 50} m` : `${(p.dist / 1000).toFixed(1)} km`}`, NEARBY_COLOR[p.kind], !!opts.dark);
+      tag.scale.multiplyScalar(4.2);
+      tag.position.y = 10.5;
+      pin.add(stem, head, tag);
+      pin.position.set(x, 0, z);
+      around.add(pin);
+    }
+    st.redraw();
+  };
+
   return {
+    setNearby,
     setFilter(f) { filter = f; refresh(); },
     setSelected(id) { selected = id; glow(); },
     setStatuses(items) {

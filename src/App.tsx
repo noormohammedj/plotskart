@@ -17,6 +17,7 @@ import { ProjectPage } from './pages/Project';
 import { Receipt } from './pages/Receipt';
 import { Reminders } from './pages/Reminders';
 import { Activity } from './pages/Activity';
+import { MyTeam } from './pages/MyTeam';
 import { Team } from './pages/Team';
 import { OfflineBanner } from './components/OfflineBanner';
 
@@ -82,7 +83,7 @@ function useDemoBoot() {
 
 export function App() {
   const route = useRoute();
-  const { session, loading, profile, projects, toastMsg } = useData();
+  const { session, loading, profile, projects, toastMsg, isFinance } = useData();
   const demo = useDemoBoot();
   useAndroidBack(route);
 
@@ -118,7 +119,7 @@ export function App() {
     page = <Finance tab={tab} />;
   }
   else if (parts[0] === 'receipt' && parts[1]) { title = 'Payment receipt'; page = <Receipt id={parts[1]} />; }
-  else if (parts[0] === 'team') { title = 'Sales team & brokers'; page = <Team />; }
+  else if (parts[0] === 'team') { title = isFinance ? 'Sales team & brokers' : 'Team'; page = isFinance ? <Team /> : <MyTeam />; }
   else if (parts[0] === 'activity') { title = 'Activity'; page = <Activity />; }
   else page = <Home />;
 

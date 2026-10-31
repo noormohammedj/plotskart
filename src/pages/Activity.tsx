@@ -2,37 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { NoteRow } from '../components/ui';
 import { useData } from '../data/DataProvider';
 import { fmtT, short } from '../lib/format';
-import { plotValue } from '../lib/plots';
-import { supabase } from '../lib/supabase';
-import type { PlotEvent } from '../lib/types';
+import { useTeamBoard, useTeamEvents } from '../lib/teamBoard';
 
 const KIND: Record<string, [string, string]> = {
   booked: ['booked', 'BKD'], sold: ['sold', 'SLD'], payment: ['money', '₹'], registration: ['reg', 'REG'],
   registered: ['reg', 'REG'], cancelled: ['available', 'REL'], price: ['rate', 'RATE'], other: ['money', '•'],
 };
 
-/** The last 200 plot events in the company, kept live. */
-function useTeamEvents() {
-  const { org } = useData();
-  const [events, setEvents] = useState<PlotEvent[]>([]);
-  useEffect(() => {
-    if (!org) return;
-    const since = new Date();
-    since.setDate(since.getDate() - 45);
-    supabase.from('plot_events').select('*').eq('org_id', org.id).gte('created_at', since.toISOString())
-      .order('created_at', { ascending: false }).limit(200)
-      .then(({ data }) => setEvents((data ?? []) as PlotEvent[]));
-    const ch = supabase.channel(`events-${org.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'plot_events', filter: `org_id=eq.${org.id}` },
-        (e) => setEvents((all) => [e.new as PlotEvent, ...all.filter((x) => x.id !== (e.new as PlotEvent).id)]))
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [org]);
-  return events;
-}
-
 export function Activity() {
-  const { notes, memberName, openPlot, markAllRead, unread, profile, members, plots, projects } = useData();
+  const { notes, memberName, openPlot, markAllRead, unread, profile, plots, projects } = useData();
   const events = useTeamEvents();
   const [tab, setTab] = useState<'team' | 'mine'>('team');
   useEffect(() => {
@@ -45,23 +23,7 @@ export function Activity() {
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
   // this month's race: bookings and sales credited to whoever handles the plot
-  const board = useMemo(() => {
-    const start = new Date();
-    start.setDate(1);
-    start.setHours(0, 0, 0, 0);
-    const rows = new Map<string, { booked: number; sold: number; value: number }>();
-    for (const e of events) {
-      if (new Date(e.created_at) < start || !e.member || (e.kind !== 'booked' && e.kind !== 'sold')) continue;
-      const r = rows.get(e.member) ?? { booked: 0, sold: 0, value: 0 };
-      r[e.kind]++;
-      const p = plotById.get(e.plot_id), pr = p && projectById.get(p.project_id);
-      if (e.kind === 'sold' && p && pr) r.value += plotValue(pr, p);
-      rows.set(e.member, r);
-    }
-    return members.filter((m) => m.active && m.role !== 'owner')
-      .map((m) => ({ m, ...(rows.get(m.id) ?? { booked: 0, sold: 0, value: 0 }) }))
-      .sort((a, b) => b.sold - a.sold || b.value - a.value || b.booked - a.booked);
-  }, [events, members, plotById, projectById]);
+  const board = useTeamBoard(events);
   const top = Math.max(1, ...board.map((r) => r.sold * 2 + r.booked));
   const monthName = new Date().toLocaleDateString('en-IN', { month: 'long' });
 

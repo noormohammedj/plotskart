@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LBL } from '../lib/format';
 import { useLayoutImageUrl } from '../lib/layoutImage';
+import { nearbyPlaces, type NearbyPlace } from '../lib/nearby';
 import type { SceneHandle } from '../lib/scene3d';
 import type { Plot, Project, Status, Tower } from '../lib/types';
 
@@ -58,6 +59,15 @@ export function Scene3D({ project, plots, towers, filter, selected, onPick }: Pr
 
   const statusKey = plots.map((p) => p.status).join('');
   useEffect(() => { scene.current?.setStatuses(plots.map((p) => ({ id: p.id, label: p.label, status: p.status }))); }, [statusKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // schools, hospitals, stations and shops around the site, once the scene is up and the project has a location
+  const [places, setPlaces] = useState<NearbyPlace[]>([]);
+  useEffect(() => {
+    if (apt || project.lat == null || project.lng == null) { setPlaces([]); return; }
+    let gone = false;
+    nearbyPlaces(Number(project.lat), Number(project.lng)).then((p) => { if (!gone) setPlaces(p); });
+    return () => { gone = true; };
+  }, [apt, project.lat, project.lng]);
+  useEffect(() => { if (ready) scene.current?.setNearby?.(places); }, [ready, places]);
   useEffect(() => { scene.current?.setFilter(filter); }, [filter]);
   useEffect(() => { scene.current?.setSelected(selected); }, [selected]);
 
@@ -73,7 +83,7 @@ export function Scene3D({ project, plots, towers, filter, selected, onPick }: Pr
         </div>
       )}
       <button className="btn sm scene3d-reset" onClick={() => scene.current?.resetView()}>Reset view</button>
-      <p className="scene3d-help">Drag to turn · pinch or scroll to zoom · right-drag to move</p>
+      <p className="scene3d-help">Drag to turn · pinch or scroll to zoom · right-drag to move{places.length ? ` · ${places.length} places nearby, map data © OpenStreetMap` : ''}</p>
     </div>
   );
 }

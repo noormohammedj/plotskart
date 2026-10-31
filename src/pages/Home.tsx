@@ -1,6 +1,8 @@
 import { MonthBars } from '../components/charts';
 import { AlertsCard } from '../components/AlertsCard';
 import { ProjectPreview } from '../components/ProjectPreview';
+import { TeamPerformance } from '../components/TeamPerformance';
+import { useTeamBoard, useTeamEvents } from '../lib/teamBoard';
 import { NoteRow, StackBar } from '../components/ui';
 import { lastMonths } from '../lib/money';
 import type { LedgerEntry } from '../lib/types';
@@ -84,6 +86,7 @@ export function Home() {
   const { plots, projects, profile, notes, memberName, openPlot, isOwner, isFinance } = useData();
   const c = counts(plots);
   const rem = profile ? upcomingReminders(projects, plots, profile, 7).slice(0, 4) : [];
+  const board = useTeamBoard(useTeamEvents());
   if (!projects.length) {
     return (
       <section className="card">
@@ -103,6 +106,7 @@ export function Home() {
         <div className="kpi"><span className="lbl"><i className="sw s-available" />Available</span><b>{c.available}</b><small>open for sale</small></div>
       </section>
       {isFinance && <MoneyStrip />}
+      <TeamPerformance board={board} compact />
       <section>
         <div className="card-h"><h2>Projects</h2><button className="linkbtn" onClick={() => go('/projects')}>All projects</button></div>
         <div className="plist">{projects.map((pr) => <ProjectCard key={pr.id} pr={pr} />)}</div>

@@ -48,4 +48,6 @@ export const DIR: Record<Dir, string> = { N: 'North', E: 'East', S: 'South', W: 
 export const SQFT_PER_CENT = 435.6;
 export const SQM_PER_SQFT = 0.092903;
 
-export const CATS = ['Land purchase', 'Registration', 'Layout design', 'Electricity', 'Water connection', 'Road', 'Broker', 'Marketing', 'Sales', 'Legal', 'Other'];
+export const CATS = ['Land purchase', 'Registration', 'Approvals (DTCP / RERA)', 'Layout design', 'Layout development', 'Road', 'Electricity', 'Water connection', 'Water tank', 'Compound wall', 'Survey & stones', 'Broker', 'Marketing', 'Sales', 'Legal', 'Other'];
+/** project cost heads that are buying the land; every other head is development */
+export const LAND_CATS = ['Land purchase', 'Registration'];
