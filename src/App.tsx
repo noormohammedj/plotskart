@@ -20,6 +20,9 @@ import { Activity } from './pages/Activity';
 import { MyTeam } from './pages/MyTeam';
 import { Team } from './pages/Team';
 import { OfflineBanner } from './components/OfflineBanner';
+import { MobileApp, phoneUi } from './m/MobileApp';
+
+const PHONE = phoneUi();
 
 function useAndroidBack(route: string) {
   const { sheetPlot, openPlot, toast } = useData();
@@ -98,6 +101,7 @@ export function App() {
   if (!session) return <Login />;
   if (loading && !profile) return <div className="spin">Loading your plots…</div>;
   if (!profile?.org_id) return <Onboarding />;
+  if (PHONE) return <><MobileApp route={route} /><OfflineBanner /></>;
 
   const parts = route.split('/').filter(Boolean);
   let title = 'Portfolio';

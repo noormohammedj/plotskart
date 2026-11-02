@@ -62,6 +62,14 @@ export function keepFieldsAboveKeyboard() {
   });
 }
 
+/** Phone apps: no zooming. iOS zooms in when a small text box is tapped (the sign-in code) and never zooms back,
+    which leaves the whole app a little too big and sliding sideways. Browsers keep pinch-zoom. */
+export function lockZoom() {
+  if (!isNative) return;
+  document.querySelector('meta[name="viewport"]')
+    ?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+}
+
 /** Phone apps: the splash screen stays until the first screen has drawn. */
 export function hideSplash() {
   if (!isNative) return;

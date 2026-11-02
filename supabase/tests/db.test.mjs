@@ -685,6 +685,24 @@ await db.exec(readFileSync(PLAN_UP, 'utf8'));
 ok((await one(null, `select plan from orgs where id = $1`, [freeOrg])).plan === 'business', 'plans migration applies again; existing companies get Business');
 ok((await one(null, `select count(*)::int n from pg_trigger where tgname in ('projects_plan_limit', 'invites_plan_limit', 'profiles_plan_limit', 'customer_messages_plan_limit', 'team_messages_plan_limit')`)).n === 5, 'all five plan triggers are back');
 
+// Monthly sales targets for the team race (20261105000000)
+const TGT_UP = new URL('20261105000000_sales_targets.sql', MIG_DIR);
+const TGT_DOWN = new URL('../rollbacks/20261105000000_sales_targets.down.sql', import.meta.url);
+const tgt = await one('o', `select * from set_sales_target($1, current_date, 5, 5000000000)`, [ids.s]);
+ok(tgt.units === 5 && Number(tgt.value_paise) === 5000000000 && new Date(tgt.month).getUTCDate() === 1, 'owner sets a monthly target; it is stored against the first of the month');
+await as('o', `select set_sales_target($1, current_date, 6, 6000000000)`, [ids.s]);
+ok((await one('s', `select count(*)::int n, max(units) u from sales_targets`)).u === 6, 'setting it again updates the same month');
+await expectErr('s', `select set_sales_target($1, current_date, 99, 0)`, [ids.s], 'salespeople cannot set targets');
+await expectErr('o', `select set_sales_target($1, current_date, 1, 0)`, [ids.o], 'the owner has no target of their own');
+await expectErr('o', `select set_sales_target($1, current_date, -1, 0)`, [ids.b], 'a negative target is refused');
+await expectErr('s', `insert into sales_targets (org_id, member_id, month) values ($1, $2, date_trunc('month', current_date))`, [orgId, ids.s], 'the app cannot write targets directly');
+ok((await one('b', `select count(*)::int n from sales_targets`)).n === 1, 'the whole team sees the targets (the race is open)');
+ok((await one('d', `select count(*)::int n from sales_targets`)).n === 0, 'another company sees no targets');
+await db.exec(readFileSync(TGT_DOWN, 'utf8'));
+ok((await one(null, `select count(*)::int n from information_schema.tables where table_name = 'sales_targets'`)).n === 0, 'targets rollback removes the table');
+await db.exec(readFileSync(TGT_UP, 'utf8'));
+ok((await one('o', `select units from set_sales_target($1, current_date, 3, 0)`, [ids.b])).units === 3, 'targets migration applies again');
+
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED');
 process.exit(fails ? 1 : 0);
 
