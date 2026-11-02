@@ -222,7 +222,7 @@ function Upcoming() {
       <section className="m-card" style={{ paddingBlock: 6 }}>
         <div className="m-list">
           {list.map((r) => (
-            <button key={r.type + r.p.id} className="m-row" onClick={() => { tap(); openPlot(r.p.id); }}>
+            <button key={r.type + r.p.id} className="m-row wrap" onClick={() => { tap(); openPlot(r.p.id); }}>
               <span className={`m-badge ${r.type === 'reg' ? 't-violet' : r.d < 0 ? 't-red' : 't-sky'}`}><I n={r.type === 'reg' ? 'stamp' : 'coin'} /></span>
               <div className="body"><b>{reminderTitle(r)}</b><span>{r.p.label} · {r.pr.name} · {r.p.buyer_name}</span></div>
               <div className="end" style={{ fontSize: '.78rem', color: 'var(--m-sub)' }}>{fmtD(r.type === 'reg' ? r.p.reg_date : r.p.due_date).replace(/ \d{4}$/, '')}</div>
@@ -300,7 +300,7 @@ function SellerHome() {
 
         <section className="m-card">
           <div className="m-cardhead"><h3>My earnings</h3><span>commission</span></div>
-          <div className="m-tiles" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          <div className="m-tiles" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8 }}>
             <Mini label="Today" value={me?.earnedToday ?? 0} tone="var(--m-rose)" />
             <Mini label="Paid to me" value={all?.paid ?? 0} tone="var(--m-mint)" />
             <Mini label="Pending" value={all?.pending ?? 0} tone="var(--m-amber)" />

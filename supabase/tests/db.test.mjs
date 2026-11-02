@@ -703,6 +703,34 @@ ok((await one(null, `select count(*)::int n from information_schema.tables where
 await db.exec(readFileSync(TGT_UP, 'utf8'));
 ok((await one('o', `select units from set_sales_target($1, current_date, 3, 0)`, [ids.b])).units === 3, 'targets migration applies again');
 
+// Customer showcase: amenities, price history, upcoming developments (20261106000000)
+const SHOW_UP = new URL('20261106000000_project_showcase.sql', MIG_DIR);
+const SHOW_DOWN = new URL('../rollbacks/20261106000000_project_showcase.down.sql', import.meta.url);
+const show = JSON.stringify({
+  tagline: 'Gated layout by the ring road', amenities: ['Park', 'Club house', ' '], growth_bp: 900,
+  prices: [{ year: 2016, rate_paise: 40000 }, { year: 2021, rate_paise: 90000, note: 'after the ring road' }],
+  developments: [{ name: 'Metro station', kind: 'transport', distance_m: 2500, expected_year: 2028 }, { name: 'IT park', kind: 'it_park' }],
+});
+await as('o', `select save_showcase($1, $2::jsonb)`, [projId, show]);
+const sc = await one('s', `select tagline, amenities, growth_bp from project_showcase where project_id = $1`, [projId]);
+ok(sc.tagline === 'Gated layout by the ring road' && sc.amenities.length === 2 && sc.growth_bp === 900, 'owner saves a showcase; blank amenities are dropped');
+ok((await one('b', `select count(*)::int n from project_price_points where project_id = $1`, [projId])).n === 2, 'brokers see the price history');
+ok((await one('s', `select string_agg(name, ',' order by sort) n from project_developments where project_id = $1`, [projId])).n === 'Metro station,IT park', 'sales see upcoming developments in order');
+await as('o', `select save_showcase($1, $2::jsonb)`, [projId, JSON.stringify({ tagline: 'x', prices: [{ year: 2020, rate_paise: 50000 }] })]);
+ok((await one('o', `select count(*)::int n from project_price_points where project_id = $1`, [projId])).n === 1 && (await one('o', `select count(*)::int n from project_developments where project_id = $1`, [projId])).n === 0, 'saving again replaces the lists');
+await expectErr('s', `select save_showcase($1, '{}'::jsonb)`, [projId], 'salespeople cannot change the showcase');
+await expectErr('o', `select save_showcase($1, $2::jsonb)`, [projId, JSON.stringify({ prices: [{ year: 2020, rate_paise: 1 }, { year: 2020, rate_paise: 2 }] })], 'two prices for one year are refused');
+await expectErr('o', `select save_showcase($1, $2::jsonb)`, [projId, JSON.stringify({ prices: [{ year: 2020, rate_paise: 0 }] })], 'a zero price is refused');
+await expectErr('o', `select save_showcase($1, $2::jsonb)`, [projId, JSON.stringify({ developments: [{ name: 'X', kind: 'casino' }] })], 'an unknown development type is refused');
+await expectErr('d', `select save_showcase($1, '{}'::jsonb)`, [projId], 'another company cannot change this showcase');
+await expectErr('o', `insert into project_price_points (org_id, project_id, year, rate_paise) values ($1, $2, 2001, 100)`, [orgId, projId], 'the app cannot write price history directly');
+ok((await one('d', `select count(*)::int n from project_showcase`)).n === 0 && (await one('d', `select count(*)::int n from project_price_points`)).n === 0, 'another company sees no showcase data');
+await db.exec(readFileSync(SHOW_DOWN, 'utf8'));
+ok((await one(null, `select count(*)::int n from information_schema.tables where table_name in ('project_showcase', 'project_price_points', 'project_developments')`)).n === 0, 'showcase rollback removes the tables');
+await db.exec(readFileSync(SHOW_UP, 'utf8'));
+await as('o', `select save_showcase($1, $2::jsonb)`, [projId, show]);
+ok((await one('s', `select count(*)::int n from project_developments where project_id = $1`, [projId])).n === 2, 'showcase migration applies again');
+
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED');
 process.exit(fails ? 1 : 0);
 

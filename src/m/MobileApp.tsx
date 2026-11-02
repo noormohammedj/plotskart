@@ -19,6 +19,8 @@ import { I, tap, type IconKey } from './kit';
 import { applyTheme, MMore, readTheme } from './More';
 import { MProjects } from './Projects';
 import { MRace } from './Race';
+import { MShowcase } from './Showcase';
+import { MShowcaseEdit } from './ShowcaseEdit';
 import './m.css';
 
 const UI_KEY = 'plotskart-ui';
@@ -68,7 +70,9 @@ function Legacy({ title, back, children }: { title: string; back: string; childr
 }
 
 export function MobileApp({ route }: { route: string }) {
-  const { projects, isFinance, toastMsg } = useData();
+  const { projects, isFinance, toastMsg, openPlot } = useData();
+  // a plot left open must not follow you to another screen
+  useEffect(() => { openPlot(null); }, [route, openPlot]);
   useEffect(() => {
     applyTheme(readTheme());
     document.documentElement.classList.add('m-on');
@@ -84,6 +88,7 @@ export function MobileApp({ route }: { route: string }) {
   } else if (parts[0] === 'projects' && parts[1] === 'new') {
     page = <Legacy title="New project" back="/projects">{parts[2] === 'apartments' ? <NewApartmentProject /> : <NewProject />}</Legacy>;
   } else if (parts[0] === 'projects') page = <MProjects />;
+  else if (parts[0] === 'show' && parts[1]) page = parts[2] === 'edit' ? <MShowcaseEdit id={parts[1]} key={parts[1]} /> : <MShowcase id={parts[1]} key={parts[1]} />;
   else if (parts[0] === 'race') page = <MRace />;
   else if (parts[0] === 'alerts') page = <MAlerts />;
   else if (parts[0] === 'more') page = <MMore />;
@@ -99,7 +104,7 @@ export function MobileApp({ route }: { route: string }) {
   return (
     <div className="m-app">
       <div key={parts[0] ?? 'home'}>{page}</div>
-      <TabBar route={route} />
+      {parts[0] !== 'show' && <TabBar route={route} />}
       <PlotSheet />
       {toastMsg && <div className="m-toast" role="status">{toastMsg}</div>}
     </div>

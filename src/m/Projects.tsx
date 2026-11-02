@@ -18,7 +18,8 @@ export function MProjects() {
           const c = counts(mine);
           const sold = c.total ? (c.sold + c.booked) / c.total : 0;
           return (
-            <button key={pr.id} className="m-proj" onClick={() => { tap(); go(`/p/${pr.id}`); }}>
+            <div key={pr.id} className="m-proj">
+            <button className="m-proj-main" onClick={() => { tap(); go(`/p/${pr.id}`); }}>
               <div className="pic">
                 <ProjectPreview project={pr} plots={mine} towers={towers.filter((t) => t.project_id === pr.id)} />
                 <span className="kind">{pr.kind === 'apartments' ? 'Apartments' : 'Plotted layout'}</span>
@@ -38,6 +39,8 @@ export function MProjects() {
                 <div className="m-sub m-small" style={{ marginTop: 6 }}>{c.total} {unitWord(pr, c.total)}</div>
               </div>
             </button>
+            <button className="m-present" onClick={() => { tap(); go(`/show/${pr.id}`); }}>▶ Show customer</button>
+            </div>
           );
         })}
       </div>

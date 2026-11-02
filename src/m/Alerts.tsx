@@ -33,8 +33,13 @@ export function MAlerts() {
   const { notes, unread, markAllRead, openPlot } = useData();
   const [filter, setFilter] = useState<Kind | 'all'>('all');
   // what was unread when the screen opened keeps its dot while you look
-  const [fresh] = useState(() => new Set(notes.filter((n) => !n.read_at).map((n) => n.id)));
-  useEffect(() => { const t = setTimeout(() => markAllRead(), 1200); return () => clearTimeout(t); }, [markAllRead]);
+  // (alerts may still be loading when the screen opens, so collect them as they arrive)
+  const [fresh, setFresh] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    const now = notes.filter((n) => !n.read_at).map((n) => n.id);
+    if (now.length) setFresh((prev) => new Set([...prev, ...now]));
+  }, [notes]);
+  useEffect(() => { if (!unread) return; const t = setTimeout(() => markAllRead(), 1500); return () => clearTimeout(t); }, [unread, markAllRead]);
 
   const shown = notes.filter((n) => filter === 'all' || alertKind(n) === filter);
   const yest = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return ymd(d); })();
@@ -49,7 +54,7 @@ export function MAlerts() {
 
   return (
     <div className="m-page">
-      <header className="m-head"><div className="t"><small>{unread ? `${unread} new` : 'All caught up'}</small><h1>Alerts</h1></div></header>
+      <header className="m-head"><div className="t"><small>{fresh.size ? `${fresh.size} new` : 'All caught up'}</small><h1>Alerts</h1></div></header>
       <div className="m-stack">
         <div className="m-chips">
           {FILTERS.map(([k, l]) => <button key={k} className={`m-chip${filter === k ? ' on' : ''}`} onClick={() => { tap(); setFilter(k); }}>{l}<em>{countOf(k)}</em></button>)}

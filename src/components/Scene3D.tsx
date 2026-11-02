@@ -28,6 +28,8 @@ export function Scene3D({ project, plots, towers, filter, selected, onPick }: Pr
   const [tip, setTip] = useState<{ id: string; x: number; y: number } | null>(null);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  // parked until tapped: a 3D view that grabs every swipe and wheel turn traps the page scroll on phones and laptops
+  const [live, setLive] = useState(false);
   const apt = project.kind === 'apartments';
   const imageUrl = useLayoutImageUrl(project.layout?.image?.path);
   // rebuild only when the shape of the project changes, not on every status update
@@ -41,13 +43,14 @@ export function Scene3D({ project, plots, towers, filter, selected, onPick }: Pr
     setReady(false);
     import('../lib/scene3d').then((m) => {
       if (gone) return;
-      const opts = { onPick: (id: string) => pickRef.current(id), onHover: (id: string | null, x: number, y: number) => setTip(id ? { id, x, y } : null), dark: isDark() };
+      const opts = { onPick: (id: string) => pickRef.current(id), onHover: (id: string | null, x: number, y: number) => setTip(id ? { id, x, y } : null), dark: isDark(), interactive: false };
       try {
         scene.current = apt
           ? m.towerScene(el, towers.map((t) => ({ id: t.id, name: t.name })), plots.map((p) => ({ id: p.id, label: p.label, status: p.status, tower: p.tower_id ?? '', floor: p.floor ?? 0 })), opts)
           : m.plotScene(el, project.layout, plots.map((p) => ({ id: p.id, label: p.label, status: p.status, geom: p.geom })), imageUrl, opts);
         scene.current.setFilter(filter);
         scene.current.setSelected(selected);
+        setLive(false);
         setReady(true);
       } catch {
         setFailed(true); // no WebGL on this device
@@ -68,6 +71,15 @@ export function Scene3D({ project, plots, towers, filter, selected, onPick }: Pr
     return () => { gone = true; };
   }, [apt, project.lat, project.lng]);
   useEffect(() => { if (ready) scene.current?.setNearby?.(places); }, [ready, places]);
+  useEffect(() => { scene.current?.setInteractive(live); if (!live) setTip(null); }, [live, ready]);
+  // scrolled away: park it again, so coming back to the page never starts inside the 3D view
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !live) return;
+    const io = new IntersectionObserver(([en]) => { if (en.intersectionRatio < 0.35) setLive(false); }, { threshold: [0, 0.35] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [live]);
   useEffect(() => { scene.current?.setFilter(filter); }, [filter]);
   useEffect(() => { scene.current?.setSelected(selected); }, [selected]);
 
@@ -82,8 +94,9 @@ export function Scene3D({ project, plots, towers, filter, selected, onPick }: Pr
           <b>{apt ? 'Flat' : 'Plot'} {tp.label}</b><span><i className={`sw s-${tp.status}`} />{LBL[tp.status]} · {Number(tp.sqft).toLocaleString('en-IN')} ft²</span>
         </div>
       )}
-      <button className="btn sm scene3d-reset" onClick={() => scene.current?.resetView()}>Reset view</button>
-      <p className="scene3d-help">Drag to turn · pinch or scroll to zoom · right-drag to move{places.length ? ` · ${places.length} places nearby, map data © OpenStreetMap` : ''}</p>
+      {ready && !live && <button className="scene3d-go" onClick={() => setLive(true)}>Tap to explore in 3D</button>}
+      {live && <div className="scene3d-reset"><button className="btn sm" onClick={() => scene.current?.resetView()}>Reset view</button> <button className="btn sm pri" onClick={() => setLive(false)}>Done</button></div>}
+      <p className="scene3d-help">{live ? 'Drag to turn · pinch or scroll to zoom · right-drag to move' : 'The page scrolls past the 3D view until you tap it'}{places.length ? ` · ${places.length} places nearby, map data © OpenStreetMap` : ''}</p>
     </div>
   );
 }
