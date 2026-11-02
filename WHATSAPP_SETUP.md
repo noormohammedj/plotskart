@@ -107,6 +107,30 @@ Samples: Noor · Sai Developers · 4 · ₹12,00,000 · 1 · 3 · ₹9,50,000
 
 Approval usually takes minutes to a few hours. If one is rejected, send me Meta's reason.
 
+### Project broadcast (marketing)
+
+This one is different: category **Marketing** (not Utility), and it has one button.
+
+**`new_project_launch`**
+```
+Hi {{1}}, {{2}} at {{3}} is now open. Plots from {{4}} ({{5}} per sq ft). Reply to book a site visit. – {{6}}
+```
+Samples: Ravi · Jatwada Greens · Mauje Jatwada, Chh. Sambhajinagar · ₹15,44,750 · ₹1,850 · Sai Developers
+
+Button: **Add button → Marketing opt-out**, text `Stop promotions`. Customers who tap it (or reply STOP) are marked
+"Said STOP" in the app and never get another broadcast.
+
+Rules for marketing messages, so the number stays healthy:
+- Only send to people who **agreed** to hear about new projects. The app sends only to customers ticked "Agreed to get
+  new project offers"; booking updates are not consent to offers.
+- Meta charges per marketing message (about ₹0.80–1.10 each in India) and counts them against the plan's monthly
+  messages in Plotskart.
+- How many different people you can message per day depends on the number's tier: 250 before business verification,
+  then 1,000, 10,000 and up as the number keeps a good quality rating. Plotskart sends at most 1,000 per broadcast and
+  never the same project to the same person twice within 7 days.
+- If many people block or report the messages, Meta lowers the quality rating and can pause the number. Send to
+  interested people, not to bought lists.
+
 ## 7. Connect it to Plotskart
 In Supabase → **Edge Functions → Secrets**, add (type the values yourself):
 

@@ -731,6 +731,70 @@ await db.exec(readFileSync(SHOW_UP, 'utf8'));
 await as('o', `select save_showcase($1, $2::jsonb)`, [projId, show]);
 ok((await one('s', `select count(*)::int n from project_developments where project_id = $1`, [projId])).n === 2, 'showcase migration applies again');
 
+// WhatsApp broadcasts: contacts with consent, sending, 7-day rule, STOP (20261107000000)
+const BC_UP = new URL('20261107000000_whatsapp_broadcast.sql', MIG_DIR);
+const BC_DOWN = new URL('../rollbacks/20261107000000_whatsapp_broadcast.down.sql', import.meta.url);
+// the database's number clean-up must match toWhatsAppNumber() in the deliver function, or STOP would miss contacts
+{
+  const { toWhatsAppNumber } = await import('../functions/_shared/whatsapp.ts').catch(() => ({}));
+  const cases = ['98765 43210', '098765 43210', '+91 98765 43210', '0091 9876543210', '050 123 4567', '501234567', '+971 50 123 4567', '+44 7700 900123', '12345', '0123456789'];
+  if (toWhatsAppNumber) {
+    const sql = (await as(null, `select array_agg(public._wa_number(x) order by i) a from unnest($1::text[]) with ordinality t(x, i)`, [cases])).rows[0].a;
+    ok(cases.every((c, i) => (toWhatsAppNumber(c) ?? null) === sql[i]), 'database and deliver function clean up phone numbers the same way');
+  }
+}
+const contact = (who, body, id = null) => one(who, `select * from save_contact($1, $2::jsonb)`, [id, JSON.stringify(body)]);
+const c1 = await contact('s', { name: 'Kiran Rao', phone: '98765 00002', marketing_ok: true });
+ok(c1.wa_number === '919876500002' && c1.marketing_ok && c1.consent_at && c1.consent_by === ids.s, 'sales adds a contact; consent records who and when');
+const c2 = await contact('o', { name: 'Leela Nair', phone: '+91 98765 00003', marketing_ok: true });
+const c3 = await contact('o', { name: 'Mohan Das', phone: '9876500004' });
+await expectErr('s', `select save_contact(null, $1::jsonb)`, [JSON.stringify({ name: 'Kiran again', phone: '+91-98765-00002' })], 'the same number in another format is refused');
+await expectErr('s', `select save_contact(null, $1::jsonb)`, [JSON.stringify({ name: 'Bad', phone: '12345' })], 'an invalid number is refused');
+await expectErr('b', `select save_contact(null, $1::jsonb)`, [JSON.stringify({ name: 'X', phone: '9876500009' })], 'brokers cannot add contacts');
+ok((await one('b', `select count(*)::int n from contacts`)).n === 0 && (await one('a', `select count(*)::int n from contacts`)).n === 0, 'brokers and the accountant do not see customer contacts');
+ok((await one('d', `select count(*)::int n from contacts`)).n === 0, 'another company sees no contacts');
+await expectErr('s', `insert into contacts (org_id, name, phone, wa_number) values ($1, 'x', '1', '1')`, [orgId], 'the app cannot write contacts directly');
+const added = (await one('s', `select import_buyers() n`)).n;
+ok(added >= 1 && (await one('o', `select marketing_ok from contacts where source = 'buyer' limit 1`)).marketing_ok === false, 'buyers are imported without marketing consent');
+ok((await one('s', `select import_buyers() n`)).n === 0, 'importing buyers again adds nobody twice');
+
+await expectErr('s', `select send_broadcast($1)`, [projId], 'only the owner sends broadcasts');
+const callsB = (await one(null, 'select count(*)::int n from net.calls')).n;
+const sent = (await one('o', `select send_broadcast($1) n`, [projId])).n;
+ok(sent === 2, 'broadcast goes only to the two contacts who agreed');
+const bm = (await as('o', `select to_name, params, whatsapp_status, sms_status, body from customer_messages where kind = 'broadcast' order by to_name`)).rows;
+ok(bm.every((m) => m.whatsapp_status === 'queued' && m.sms_status === 'not used for broadcasts'), 'broadcast messages are queued for WhatsApp only');
+ok(bm[0].params[0] === 'Kiran' && bm[0].params[1] === 'Jatwada Greens' && bm[0].body.startsWith('Hi Kiran, Jatwada Greens'), 'each message greets the customer by first name and names the project');
+ok((await one(null, 'select count(*)::int n from net.calls')).n - callsB === 2, 'the deliver function is called once per message');
+ok((await one('s', `select total from broadcasts order by created_at desc limit 1`)).total === 2, 'sales can see the broadcast and its size');
+await expectErr('o', `select send_broadcast($1)`, [projId], 'the same project is not sent to the same people twice within 7 days');
+await as('o', `select save_contact($1, $2::jsonb)`, [c3.id, JSON.stringify({ name: 'Mohan Das', phone: '9876500004', marketing_ok: true })]);
+ok((await one('o', `select send_broadcast($1) n`, [projId])).n === 1, 'a contact who agrees later gets the next send');
+
+// the WhatsApp sections above roll their migrations back and forth, which puts back the older STOP handler;
+// on a real database this migration runs last, so load its handler again before checking STOP
+{ const src = readFileSync(BC_UP, 'utf8'); await db.exec(src.slice(src.indexOf('create or replace function public.whatsapp_opt_out'), src.indexOf('revoke execute on function public.whatsapp_opt_out'))); }
+ok((await one(null, `select whatsapp_opt_out('919876500003') n`)).n >= 1, 'STOP from a contact is recorded');
+const lo = await one('o', `select marketing_ok, opted_out_at from contacts where id = $1`, [c2.id]);
+ok(lo.marketing_ok === false && lo.opted_out_at, 'STOP turns offers off for that contact');
+await as('o', `select save_contact($1, $2::jsonb)`, [c2.id, JSON.stringify({ name: 'Leela Nair', phone: '+91 98765 00003', marketing_ok: true })]);
+ok((await one('o', `select opted_out_at from contacts where id = $1`, [c2.id])).opted_out_at === null, 'agreeing again (recorded by staff) clears the opt-out');
+
+await as('d', `select save_contact(null, $1::jsonb)`, [JSON.stringify({ name: 'Demo Lead', phone: '9876511111', marketing_ok: true })]);
+ok((await one('d', `select send_broadcast($1) n`, [demoProj])).n === 1, 'demo company can try a broadcast');
+ok((await one(null, `select whatsapp_status from customer_messages where kind = 'broadcast' and org_id = $1`, [demoOrg])).whatsapp_status === 'demo, not sent', 'demo broadcasts are never sent');
+await expectErr('o', `select delete_contact($1)`, ['00000000-0000-0000-0000-000000000999'], 'deleting an unknown contact is refused');
+await expectErr('s', `select delete_contact($1)`, [c3.id], 'only the owner deletes contacts');
+await as('o', `select delete_contact($1)`, [c3.id]);
+ok((await one('o', `select count(*)::int n from customer_messages where kind = 'broadcast' and contact_id is null`)).n >= 1, 'deleting a contact keeps the message log');
+
+await db.exec(readFileSync(BC_DOWN, 'utf8'));
+ok((await one(null, `select count(*)::int n from information_schema.tables where table_name in ('contacts', 'broadcasts')`)).n === 0
+  && (await one(null, `select count(*)::int n from information_schema.columns where table_name = 'customer_messages' and column_name = 'broadcast_id'`)).n === 0, 'broadcast rollback removes contacts, broadcasts and the new columns');
+ok((await one(null, `select whatsapp_opt_out('919876500003') n`)).n >= 0, 'after rollback STOP still works for buyers and team');
+await db.exec(readFileSync(BC_UP, 'utf8'));
+ok((await one('s', `select (save_contact(null, $1::jsonb)).marketing_ok ok`, [JSON.stringify({ name: 'Again', phone: '9876500005', marketing_ok: true })])).ok === true, 'broadcast migration applies again');
+
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED');
 process.exit(fails ? 1 : 0);
 

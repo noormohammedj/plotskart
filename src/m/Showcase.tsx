@@ -165,6 +165,7 @@ export function MShowcase({ id }: { id: string }) {
         </section>
 
         <button className="m-btn" onClick={share}>Share with the customer on WhatsApp</button>
+        {isOwner && <button className="m-btn ghost" onClick={() => { tap(); go(`/broadcast/${id}`); }}>📣 Announce to all customers who agreed to offers</button>}
         <p className="m-sub" style={{ fontSize: '.72rem', textAlign: 'center' }}>Projections are estimates from past prices, not a promise of future value.</p>
       </div>
     </div>

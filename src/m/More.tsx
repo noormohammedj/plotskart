@@ -14,7 +14,7 @@ export function applyTheme(t: Theme) {
 }
 
 export function MMore() {
-  const { profile, org, isOwner, isFinance, signOut } = useData();
+  const { profile, org, isOwner, isFinance, canSell, signOut } = useData();
   const [theme, setTheme] = useState<Theme>(readTheme);
   useEffect(() => applyTheme(theme), [theme]);
   if (!profile) return null;
@@ -22,6 +22,7 @@ export function MMore() {
   const rows: [IconKey, string, string, string, string][] = [
     ...(isFinance ? [['chart', 'Finance', 'Costs, cash, bank and reports', '/finance', 'violet'] as [IconKey, string, string, string, string]] : []),
     ...(isOwner ? [['users', 'Team & commission', 'Invite people, set commission, pay out', '/team', 'rose'] as [IconKey, string, string, string, string]] : [['users', 'My commission', 'Earned, paid and pending', '/team', 'rose'] as [IconKey, string, string, string, string]]),
+    ...(canSell ? [['chat', 'Customers & broadcasts', isOwner ? 'Who agreed to offers; announce projects on WhatsApp' : 'Add customers and record their consent', '/contacts', 'mint'] as [IconKey, string, string, string, string]] : []),
     ['clock', 'Reminders & WhatsApp', 'Due dates, buyer messages, your alerts', '/reminders', 'sky'],
     ['bell', 'Activity log', 'Every change, by everyone', '/activity', 'amber'],
   ];
@@ -41,7 +42,7 @@ export function MMore() {
         <section className="m-card" style={{ paddingBlock: 4 }}>
           <div className="m-list">
             {rows.map(([icon, title, sub, to, tone]) => (
-              <button key={to} className="m-row" onClick={() => { tap(); go(to); }}>
+              <button key={to} className="m-row wrap" onClick={() => { tap(); go(to); }}>
                 <span className={`m-badge t-${tone}`}><I n={icon} /></span>
                 <div className="body"><b>{title}</b><span>{sub}</span></div>
                 <span className="chev"><I n="chev" /></span>

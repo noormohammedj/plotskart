@@ -18,6 +18,8 @@ import { MHome } from './Home';
 import { I, tap, type IconKey } from './kit';
 import { applyTheme, MMore, readTheme } from './More';
 import { MProjects } from './Projects';
+import { MBroadcast } from './Broadcast';
+import { MContacts } from './Contacts';
 import { MRace } from './Race';
 import { MShowcase } from './Showcase';
 import { MShowcaseEdit } from './ShowcaseEdit';
@@ -41,7 +43,9 @@ const TABS: [string, string, IconKey][] = [['/', 'Home', 'home'], ['/projects', 
 function TabBar({ route }: { route: string }) {
   const { unread } = useData();
   const section = '/' + (route.split('/')[1] ?? '');
-  const i = Math.max(0, TABS.findIndex(([to]) => to === section || (to === '/projects' && section === '/p')));
+  // screens reached from More (customers, broadcasts, finance, team...) keep More lit
+  const more = ['/contacts', '/broadcast', '/finance', '/team', '/reminders', '/activity', '/receipt'].includes(section);
+  const i = more ? TABS.length - 1 : Math.max(0, TABS.findIndex(([to]) => to === section || (to === '/projects' && section === '/p')));
   return (
     <nav className="m-tabbar" aria-label="Main">
       <span className="knob" style={{ width: `calc((100% - 12px) / ${TABS.length})`, transform: `translateX(${i * 100}%)` }} />
@@ -89,6 +93,8 @@ export function MobileApp({ route }: { route: string }) {
     page = <Legacy title="New project" back="/projects">{parts[2] === 'apartments' ? <NewApartmentProject /> : <NewProject />}</Legacy>;
   } else if (parts[0] === 'projects') page = <MProjects />;
   else if (parts[0] === 'show' && parts[1]) page = parts[2] === 'edit' ? <MShowcaseEdit id={parts[1]} key={parts[1]} /> : <MShowcase id={parts[1]} key={parts[1]} />;
+  else if (parts[0] === 'contacts') page = <MContacts />;
+  else if (parts[0] === 'broadcast') page = <MBroadcast projectId={parts[1]} key={parts[1] ?? 'all'} />;
   else if (parts[0] === 'race') page = <MRace />;
   else if (parts[0] === 'alerts') page = <MAlerts />;
   else if (parts[0] === 'more') page = <MMore />;
