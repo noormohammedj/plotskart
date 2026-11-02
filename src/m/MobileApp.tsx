@@ -9,7 +9,6 @@ import { Finance } from '../pages/Finance';
 import { MyTeam } from '../pages/MyTeam';
 import { NewApartmentProject } from '../pages/NewApartmentProject';
 import { NewProject } from '../pages/NewProject';
-import { ProjectPage } from '../pages/Project';
 import { Receipt } from '../pages/Receipt';
 import { Reminders } from '../pages/Reminders';
 import { Team } from '../pages/Team';
@@ -18,12 +17,14 @@ import { MHome } from './Home';
 import { I, tap, type IconKey } from './kit';
 import { applyTheme, MMore, readTheme } from './More';
 import { MProjects } from './Projects';
+import { MProjectView } from './ProjectView';
 import { MBroadcast } from './Broadcast';
 import { MContacts } from './Contacts';
 import { MRace } from './Race';
 import { MShowcase } from './Showcase';
 import { MShowcaseEdit } from './ShowcaseEdit';
 import './m.css';
+import './legacy.css';
 
 const UI_KEY = 'plotskart-ui';
 /** The phone design runs in the iPhone and Android apps. In a browser, open the app with ?ui=phone to try it
@@ -74,7 +75,7 @@ function Legacy({ title, back, children }: { title: string; back: string; childr
 }
 
 export function MobileApp({ route }: { route: string }) {
-  const { projects, isFinance, toastMsg, openPlot } = useData();
+  const { isFinance, toastMsg, openPlot } = useData();
   // a plot left open must not follow you to another screen
   useEffect(() => { openPlot(null); }, [route, openPlot]);
   useEffect(() => {
@@ -88,7 +89,7 @@ export function MobileApp({ route }: { route: string }) {
   if (parts[0] === 'p' && parts[1] && parts[2] === 'edit') page = <Legacy title="Edit layout" back={`/p/${parts[1]}`}><EditLayout id={parts[1]} key={parts[1]} /></Legacy>;
   else if (parts[0] === 'p' && parts[1]) {
     const tab = parts[2] === 'list' ? 'list' : parts[2] === 'info' ? 'info' : parts[2] === 'blocks' ? 'blocks' : 'layout';
-    page = <Legacy title={projects.find((p) => p.id === parts[1])?.name ?? 'Project'} back="/projects"><ProjectPage id={parts[1]} tab={tab} key={parts[1]} /></Legacy>;
+    page = <MProjectView id={parts[1]} tab={tab} key={parts[1]} />;
   } else if (parts[0] === 'projects' && parts[1] === 'new') {
     page = <Legacy title="New project" back="/projects">{parts[2] === 'apartments' ? <NewApartmentProject /> : <NewProject />}</Legacy>;
   } else if (parts[0] === 'projects') page = <MProjects />;

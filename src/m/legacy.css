@@ -1,0 +1,98 @@
+/* Phone app: the screens shared with the web app (finance, team, reminders, activity, new project, the plot sheet...)
+   wear the phone design. Their own tokens are pointed at the phone palette and their building blocks reshaped;
+   nothing here applies outside the phone app (html.m-on). html:root.m-on outranks styles.css's :root rules. */
+html:root.m-on{
+  --bg:var(--m-bg); --surface:var(--m-card); --sunk:var(--m-sunk); --ink:var(--m-ink); --muted:var(--m-sub); --line:var(--m-line);
+  --accent:var(--m-rose); --accent-soft:var(--m-rose-soft); --accent-ink:#fff;
+  --pri:var(--m-ink); --pri-ink:var(--m-bg); --lift:var(--m-shadow);
+  --good:var(--m-mint); --warn:var(--m-amber); --bad:var(--m-red);
+  --f-display:var(--m-font); --f-body:var(--m-font);
+}
+html.m-on .m-legacy{font-family:var(--m-font);color:var(--m-ink)}
+html.m-on .m-legacy h1{font-size:clamp(1.5rem,7vw,1.85rem);font-weight:800;letter-spacing:-.03em}
+html.m-on .m-legacy h2{font-weight:800;letter-spacing:-.02em}
+html.m-on .m-legacy h3{font-weight:800}
+/* the phone top bar already has a back button */
+html.m-on .m-legacy .back{display:none}
+html.m-on .m-legacy .stack-v{gap:16px}
+
+/* cards, tiles, KPIs */
+html.m-on .card,html.m-on .kpi,html.m-on .tile,html.m-on .rem,html.m-on .tile.acct{border-radius:24px;box-shadow:var(--m-shadow);border:0}
+html.m-on .card{padding:18px}
+html.m-on .tile b,html.m-on .kpi b,html.m-on .tile.acct b{font-weight:800;letter-spacing:-.03em}
+html.m-on .tile.hero{background:var(--m-hero);color:#fff;box-shadow:0 20px 40px -24px rgba(124,92,250,.6)}
+html.m-on .tile.acct.on{box-shadow:inset 0 0 0 2px var(--m-rose),var(--m-shadow)}
+html.m-on .money{border-radius:16px}
+html.m-on .dl{border-radius:18px;background:var(--m-line)}
+html.m-on .dl div{padding:11px 13px}
+html.m-on .lbl{color:var(--m-sub);font-weight:600}
+
+/* buttons, chips, segmented controls */
+html.m-on .btn{border:0;border-radius:14px;padding:11px 18px;font-weight:700;background:var(--m-card);box-shadow:var(--m-shadow);color:var(--m-ink);transition:transform .3s var(--m-spring)}
+html.m-on .btn:hover{border:0}
+html.m-on .btn:active{transform:scale(.95)}
+html.m-on .btn.pri{background:linear-gradient(140deg,var(--m-rose),var(--m-violet));color:#fff;box-shadow:0 12px 24px -14px rgba(242,85,122,.8)}
+html.m-on .btn.sm{padding:8px 13px;border-radius:12px;font-size:.82rem}
+html.m-on .btn.ghost{background:var(--m-sunk);box-shadow:none}
+html.m-on .btn.danger{color:var(--m-red)}
+html.m-on .linkbtn{color:var(--m-rose);font-weight:700}
+html.m-on .chip{border:0;border-radius:999px;padding:8px 13px;background:var(--m-card);box-shadow:var(--m-shadow);font-weight:700;color:var(--m-sub)}
+html.m-on .chip.on{background:var(--m-ink);color:var(--m-bg);box-shadow:none}
+html.m-on .chip.on .n{color:inherit;opacity:.7}
+html.m-on .seg{border-radius:16px;padding:4px;background:var(--m-sunk);max-width:100%}
+html.m-on .seg button{border-radius:12px;padding:9px 14px;font-weight:700;color:var(--m-sub)}
+html.m-on .seg button.on{background:var(--m-card);color:var(--m-ink);box-shadow:var(--m-shadow)}
+html.m-on .tag{border-radius:8px;font-weight:700}
+
+/* status pills: soft tints like the rest of the phone app */
+html.m-on .pill{font-weight:800;padding:3px 10px}
+html.m-on .pill.st-available{background:var(--m-red-soft);color:var(--m-red)}
+html.m-on .pill.st-booked{background:var(--m-amber-soft);color:var(--m-amber)}
+html.m-on .pill.st-sold{background:var(--m-mint-soft);color:var(--m-mint)}
+
+/* forms */
+html.m-on form.f,html.m-on div.f{background:var(--m-card);border-radius:24px;padding:18px;box-shadow:var(--m-shadow);gap:14px}
+html.m-on form.f label,html.m-on div.f label{font-size:.8rem;font-weight:700;color:var(--m-sub);gap:6px}
+html.m-on form.f input,html.m-on form.f select,html.m-on div.f input,html.m-on div.f select,html.m-on .m-legacy textarea,
+html.m-on .mini-select,html.m-on .setrow select,html.m-on .inst-row input,html.m-on .tbl-wrap td input,html.m-on .tbl-wrap td select,html.m-on .tools-r input{
+  border:0;border-radius:14px;background:var(--m-sunk);color:var(--m-ink);padding:12px 14px;font-size:1rem;font-weight:600;box-shadow:inset 0 0 0 1.5px transparent;transition:box-shadow .2s}
+html.m-on form.f input:focus,html.m-on form.f select:focus,html.m-on div.f input:focus,html.m-on .tools-r input:focus{outline:0;box-shadow:inset 0 0 0 2px var(--m-rose)}
+html.m-on .upload{border-radius:24px;border:2px dashed var(--m-line);background:var(--m-card)}
+
+/* tables become cards that scroll sideways */
+html.m-on .tbl-wrap{border-radius:22px;box-shadow:var(--m-shadow);background:var(--m-card)}
+html.m-on th{background:var(--m-card);color:var(--m-sub);font-weight:700;text-transform:uppercase;font-size:.7rem;letter-spacing:.05em}
+html.m-on tr.click:active td{background:var(--m-sunk)}
+
+/* lists and reminders */
+html.m-on .li{padding:13px 0}
+html.m-on .li .ic{border-radius:12px;width:36px;height:36px}
+html.m-on .rem{padding:16px}
+html.m-on .rem .when{border-radius:16px}
+html.m-on .rem .msg{border-radius:12px}
+html.m-on .board-row .rank{background:var(--m-sunk);font-weight:800}
+html.m-on .board-row:first-child .rank{background:linear-gradient(180deg,#FFC94D,#F59E0B);color:#fff}
+html.m-on .board-row.me{background:var(--m-rose-soft);border-radius:14px}
+
+/* maps and plans */
+html.m-on .mapwrap{border-radius:22px}
+html.m-on .zoom{border:0;border-radius:14px;box-shadow:var(--m-shadow);background:var(--m-card)}
+html.m-on .zoom button+button{border-left:1px solid var(--m-line)}
+html.m-on .sp-tower{border:0;border-radius:20px;box-shadow:var(--m-shadow);background:var(--m-card)}
+html.m-on .sp-u{border-radius:10px}
+html.m-on .scene3d{border-radius:22px}
+html.m-on .scene3d-go{background:linear-gradient(140deg,var(--m-rose),var(--m-violet));font-family:var(--m-font);font-weight:800}
+
+/* the plot sheet: a bottom sheet like the rest of the phone app */
+html.m-on .scrim{background:rgba(17,13,22,.38);z-index:50}
+html.m-on .sheet{z-index:51;top:auto;left:0;right:0;width:100%;max-width:640px;margin:0 auto;max-height:90%;border-radius:30px 30px 0 0;background:var(--m-bg);
+  padding:10px 18px calc(28px + env(safe-area-inset-bottom,0px));animation:m-sheet .5s var(--m-spring) both;font-family:var(--m-font)}
+html.m-on .sheet::before{content:"";display:block;width:40px;height:5px;border-radius:9px;background:var(--m-faint);opacity:.6;margin:0 auto 6px;flex:none}
+html.m-on .sh-h h2{font-size:1.7rem;font-weight:800}
+html.m-on .x{background:var(--m-card);box-shadow:var(--m-shadow)}
+html.m-on .sheet .card{box-shadow:none;background:var(--m-card)}
+
+/* charts and bars */
+html.m-on svg.chart .b-in{fill:var(--m-sky)} html.m-on svg.chart .b-out{fill:var(--m-rose)}
+html.m-on .hbar i,html.m-on .minibar i{background:linear-gradient(90deg,var(--m-rose),var(--m-violet))}
+html.m-on .receipt{border-radius:22px;box-shadow:var(--m-shadow);border:0}
